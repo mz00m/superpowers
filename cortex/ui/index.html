@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cortex</title>
+<style>
+:root{
+  --bg:#f6f6f4;--panel:#ffffff;--ink:#1a1a1a;--muted:#6b6b6b;--line:#e4e4e0;--accent:#3b5bdb;--accent-ink:#fff;
+  --ok:#2f9e44;--warn:#e67700;--bad:#c92a2a;--chip:#eef0f7;--code:#f1f1ee;--shadow:0 1px 2px rgba(0,0,0,.06),0 8px 24px rgba(0,0,0,.06);
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#141416;--panel:#1d1d21;--ink:#ececec;--muted:#9a9a9a;--line:#2c2c31;--accent:#7b93ff;--accent-ink:#0f1030;
+  --chip:#26262c;--code:#111114;--shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35);
+}}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;background:var(--bg);color:var(--ink);display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+a{color:var(--accent)}
+nav{background:var(--panel);border-right:1px solid var(--line);padding:18px 12px;position:sticky;top:0;height:100vh;display:flex;flex-direction:column;gap:4px}
+.brand{font-weight:700;font-size:18px;letter-spacing:.2px;padding:6px 10px 14px;display:flex;align-items:center;gap:8px}
+.brand small{font-weight:500;color:var(--muted);font-size:11px}
+nav button{all:unset;cursor:pointer;padding:9px 10px;border-radius:8px;color:var(--ink);display:flex;justify-content:space-between;align-items:center}
+nav button:hover{background:var(--chip)}
+nav button.active{background:var(--accent);color:var(--accent-ink)}
+nav button .n{font-size:11px;opacity:.7}
+nav .spacer{flex:1}
+nav .device{font-size:12px;color:var(--muted);padding:8px 10px;border-top:1px solid var(--line)}
+nav .device b{display:block;color:var(--ink);font-weight:600}
+main{padding:28px 32px 60px;max-width:1240px;width:100%}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px}
+h1{font-size:22px;margin:0}
+h2{font-size:15px;margin:22px 0 10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+h3{font-size:15px;margin:0 0 8px}
+p.help{color:var(--muted);margin:4px 0 14px;max-width:70ch}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:7px 12px;border-radius:8px;cursor:pointer;font:inherit;font-size:13px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.danger{color:var(--bad)}
+.btn.sm{padding:3px 8px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:default}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;box-shadow:var(--shadow)}
+.grid{display:grid;gap:14px}
+.tiles{grid-template-columns:repeat(auto-fit,minmax(170px,1fr))}
+.tile .v{font-size:28px;font-weight:700;margin-top:4px}
+.tile .l{color:var(--muted);font-size:12px}
+.row{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
+.chip{display:inline-block;background:var(--chip);border-radius:999px;padding:2px 9px;font-size:12px;color:var(--ink);margin:1px 2px 1px 0}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--muted);margin-right:6px;vertical-align:middle}
+.dot.on{background:var(--ok)}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:12px;color:var(--muted);font-weight:600}
+tr:hover td{background:color-mix(in srgb,var(--chip) 50%,transparent)}
+td.name{font-weight:600;cursor:pointer}
+td .desc{display:block;font-weight:400;color:var(--muted);font-size:12px;max-width:44ch;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st{border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px;cursor:pointer;background:var(--panel);color:var(--muted);white-space:nowrap}
+.st.linked{border-color:var(--ok);color:var(--ok)}
+.st.copied{border-color:var(--accent);color:var(--accent)}
+.st.diverged,.st.foreign-link{border-color:var(--warn);color:var(--warn)}
+.st.broken-link{border-color:var(--bad);color:var(--bad)}
+input,textarea,select{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 10px;width:100%}
+textarea{min-height:120px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;line-height:1.5}
+label.f{display:block;margin:10px 0 4px;font-size:12px;color:var(--muted);font-weight:600}
+.two{display:grid;grid-template-columns:320px 1fr;gap:16px;align-items:start}
+.list{display:flex;flex-direction:column;gap:6px;max-height:70vh;overflow:auto}
+.item{padding:10px 12px;border:1px solid var(--line);border-radius:10px;cursor:pointer;background:var(--panel)}
+.item.active{border-color:var(--accent)}
+.item .t{font-weight:600}
+.item .m{font-size:12px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.radio{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.radio label{border:1px solid var(--line);border-radius:10px;padding:12px;cursor:pointer;display:block}
+.radio label.on{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.radio label b{display:block;margin-bottom:4px}
+.radio label span{color:var(--muted);font-size:12px}
+.radio input{width:auto;margin-right:6px}
+code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
+code{background:var(--code);padding:1px 5px;border-radius:5px}
+pre{background:var(--code);padding:12px;border-radius:8px;overflow:auto;max-height:50vh}
+.drawer{position:fixed;top:0;right:0;width:min(640px,92vw);height:100vh;background:var(--panel);border-left:1px solid var(--line);box-shadow:var(--shadow);padding:22px;overflow:auto;z-index:20;display:none}
+.drawer.open{display:block}
+.backdrop{position:fixed;inset:0;background:rgba(0,0,0,.25);z-index:10;display:none}
+.backdrop.open{display:block}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;z-index:50;opacity:0;transition:opacity .2s;pointer-events:none;max-width:80vw}
+.toast.show{opacity:1}
+.toast.err{background:var(--bad);color:#fff}
+.empty{color:var(--muted);padding:24px;text-align:center;border:1px dashed var(--line);border-radius:12px}
+.bar{height:8px;background:var(--chip);border-radius:99px;overflow:hidden;margin-top:8px}
+.bar i{display:block;height:100%;background:var(--ok)}
+details summary{cursor:pointer;color:var(--muted);font-size:13px;margin:6px 0}
+.kv{display:grid;grid-template-columns:140px 1fr;gap:4px 12px;font-size:13px}
+.kv b{color:var(--muted);font-weight:600}
+.menu{position:relative;display:inline-block}
+.menu > div{display:none;position:absolute;right:0;top:110%;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);min-width:200px;z-index:5;padding:6px}
+.menu.open > div{display:block}
+.menu > div button{all:unset;display:block;width:100%;padding:7px 10px;border-radius:6px;cursor:pointer;box-sizing:border-box}
+.menu > div button:hover{background:var(--chip)}
+@media (max-width:820px){body{grid-template-columns:1fr}nav{position:static;height:auto;flex-direction:row;flex-wrap:wrap}nav .spacer,nav .device{display:none}.two{grid-template-columns:1fr}main{padding:18px}}
+</style>
+</head>
+<body>
+<nav>
+  <div class="brand">🧠 Cortex <small>skills + memory, everywhere</small></div>
+  <button data-view="overview">Overview</button>
+  <button data-view="skills">Skills <span class="n" id="n-skills"></span></button>
+  <button data-view="memory">Memory <span class="n" id="n-memory"></span></button>
+  <button data-view="agents">Agents <span class="n" id="n-agents"></span></button>
+  <button data-view="devices">Devices <span class="n" id="n-devices"></span></button>
+  <button data-view="settings">Settings</button>
+  <div class="spacer"></div>
+  <div class="device" id="nav-device"></div>
+</nav>
+<main>
+  <header>
+    <h1 id="title">Overview</h1>
+    <div class="actions">
+      <button class="btn" onclick="refresh(true)">↻ Rescan</button>
+      <button class="btn primary" id="sync-btn" onclick="doSync()">⇅ Sync</button>
+    </div>
+  </header>
+  <div id="view"></div>
+</main>
+<div class="backdrop" id="backdrop" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (s, el=document) => el.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let S = null, view = 'overview', ui = { skillQ: '', memQ: '', memId: null, memTag: '' };
+
+async function api(method, path, body) {
+  const r = await fetch(path, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || r.statusText);
+  return data;
+}
+function toast(msg, err) { const t = $('#toast'); t.textContent = msg; t.className = 'toast show' + (err ? ' err' : ''); clearTimeout(t._t); t._t = setTimeout(() => t.className = 'toast', err ? 5000 : 2200); }
+async function act(fn, okMsg) { try { const r = await fn(); if (okMsg) toast(typeof okMsg === 'function' ? okMsg(r) : okMsg); await refresh(); return r; } catch (e) { toast(e.message, true); } }
+
+async function refresh(announce) {
+  S = await api('GET', '/api/state');
+  $('#n-skills').textContent = S.counts.skills; $('#n-memory').textContent = S.counts.memory;
+  $('#n-agents').textContent = S.counts.agentsDetected; $('#n-devices').textContent = S.devices.length;
+  $('#nav-device').innerHTML = `<b>${esc(S.device.name)}</b>${esc(S.config.vaultPath)}<br>${esc(S.storage.mode)}${S.storage.git?.isRepo ? `${S.storage.mode !== 'git' ? ' · git' : ''}${S.storage.git.dirty ? ` · ${S.storage.git.dirty} unsynced` : ''}` : ''}`;
+  $('#sync-btn').style.display = S.storage.mode === 'git' || S.storage.git?.isRepo ? '' : 'none';
+  render();
+  if (announce) toast('Rescanned');
+}
+function setView(v) { view = v; document.querySelectorAll('nav button[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === v)); render(); }
+document.querySelectorAll('nav button[data-view]').forEach(b => b.onclick = () => setView(b.dataset.view));
+function render() {
+  if (!S) return;
+  $('#title').textContent = { overview: 'Overview', skills: 'Skills', memory: 'Memory', agents: 'Agents', devices: 'Devices', settings: 'Settings' }[view];
+  $('#view').innerHTML = ({ overview, skills, memory, agents, devices, settings })[view]();
+  document.querySelectorAll('.menu > button').forEach(b => b.onclick = e => { e.stopPropagation(); const m = b.parentElement; document.querySelectorAll('.menu.open').forEach(x => x !== m && x.classList.remove('open')); m.classList.toggle('open'); });
+}
+document.addEventListener('click', () => document.querySelectorAll('.menu.open').forEach(m => m.classList.remove('open')));
+const fsAgents = () => S.agents.filter(a => a.kind === 'fs' && a.enabled && a.skillsDir);
+const memAgents = () => S.agents.filter(a => a.kind === 'fs' && a.enabled && a.memoryFiles?.length);
+
+// ---------- Overview ----------
+function overview() {
+  const cols = fsAgents();
+  const cells = S.skills.length * cols.length;
+  const linked = S.skills.reduce((n, s) => n + cols.filter(a => ['linked', 'copied'].includes(s.agents[a.id]?.status)).length, 0);
+  const pct = cells ? Math.round(linked / cells * 100) : 0;
+  const git = S.storage.git;
+  return `
+  <div class="grid tiles">
+    <div class="card tile"><div class="l">Skills in vault</div><div class="v">${S.counts.skills}</div></div>
+    <div class="card tile"><div class="l">Memory items</div><div class="v">${S.counts.memory}</div></div>
+    <div class="card tile"><div class="l">Agents detected here</div><div class="v">${S.counts.agentsDetected}<span style="font-size:14px;color:var(--muted)"> / ${S.agents.length}</span></div></div>
+    <div class="card tile"><div class="l">Devices</div><div class="v">${S.devices.length}</div></div>
+  </div>
+  <div class="grid" style="grid-template-columns:2fr 1fr;margin-top:14px">
+    <div class="card">
+      <h3>Coverage</h3>
+      <p class="help">${linked} of ${cells} skill × agent slots are installed on this device.</p>
+      <div class="bar"><i style="width:${pct}%"></i></div>
+      ${S.counts.unadopted ? `<p class="help" style="margin-top:12px">⚠️ ${S.counts.unadopted} skill(s) live in your agents but not the vault. <a href="#" onclick="setView('skills');return false">Adopt them →</a></p>` : ''}
+      <h3 style="margin-top:18px">This device</h3>
+      <div class="kv">
+        <b>Name</b><span>${esc(S.device.name)} <button class="btn sm" onclick="renameDevice()">rename</button></span>
+        <b>Vault</b><span><code>${esc(S.config.vaultPathResolved)}</code></span>
+        <b>Storage</b><span>${esc({local:'Local only',folder:'Synced folder (iCloud/Dropbox/Drive)',git:'Git remote'}[S.storage.mode])}${git?.isRepo ? ` — branch <code>${esc(git.branch)}</code>${git.remote ? `, remote <code>${esc(git.remote)}</code>` : ', no remote'}${git.dirty ? `, <b style="color:var(--warn)">${git.dirty} unsynced change(s)</b>` : ''}` : ''}</span>
+        <b>Link mode</b><span>${S.config.linkMode === 'symlink' ? 'Symlink (agents always see the vault copy)' : 'Copy (agents get a snapshot; re-install to update)'}</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Agents on this device</h3>
+      ${S.agents.map(a => `<div style="padding:5px 0"><span class="dot ${a.detected ? 'on' : ''}"></span>${esc(a.name)} <span style="color:var(--muted);font-size:12px">${a.enabled ? (a.kind === 'manual' ? 'manual' : (a.detected ? 'detected' : 'not found')) : 'disabled'}</span></div>`).join('')}
+      <h3 style="margin-top:16px">Quick actions</h3>
+      <div class="actions">
+        <button class="btn" onclick="setView('skills')">Manage skills</button>
+        <button class="btn" onclick="pushMemory('all')">Push memory to all agents</button>
+        <button class="btn" onclick="exportMemory()">Export for ChatGPT</button>
+      </div>
+    </div>
+  </div>
+  <h2>Recent memory</h2>
+  ${S.memory.length ? `<div class="card">${S.memory.slice(0, 5).map(m => `<div style="padding:6px 0;border-bottom:1px solid var(--line)"><b>${esc(m.title)}</b> <span style="color:var(--muted);font-size:12px">${esc(m.scope)} · ${m.tags.map(t => `<span class="chip">${esc(t)}</span>`).join('')}</span><div style="color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(m.body)}</div></div>`).join('')}</div>` : `<div class="empty">No memory yet. Import from an agent, paste from ChatGPT, or add one on the Memory tab.</div>`}`;
+}
+async function renameDevice() { const name = prompt('Device name', S.device.name); if (name) act(() => api('POST', '/api/device', { name }), 'Renamed'); }
+
+// ---------- Skills ----------
+const STATUS_LABEL = { linked: '🔗 linked', copied: '📋 copied', diverged: '⚠️ diverged', missing: '+ install', 'foreign-link': '↗ other link', 'broken-link': '✗ broken', unsupported: '—' };
+function skills() {
+  const cols = fsAgents();
+  const q = ui.skillQ.toLowerCase();
+  const rows = S.skills.filter(s => !q || s.name.includes(q) || (s.description || '').toLowerCase().includes(q));
+  const un = S.agents.filter(a => a.unadopted.length);
+  return `
+  <div class="actions" style="margin-bottom:12px">
+    <input placeholder="Search skills…" value="${esc(ui.skillQ)}" oninput="ui.skillQ=this.value;render();this.focus();this.setSelectionRange(this.value.length,this.value.length)" style="max-width:280px">
+    <button class="btn" onclick="newSkill()">+ New skill</button>
+    <span style="color:var(--muted);font-size:12px">Click a cell to install / remove. Link mode: <b>${esc(S.config.linkMode)}</b></span>
+  </div>
+  <div class="card" style="padding:0;overflow:auto">
+  ${rows.length ? `<table><thead><tr><th>Skill</th>${cols.map(a => `<th>${esc(a.name)}</th>`).join('')}<th></th></tr></thead><tbody>
+  ${rows.map(s => `<tr>
+    <td class="name" onclick="openSkill('${esc(s.name)}')">${esc(s.name)}<span class="desc">${esc(s.description)}</span></td>
+    ${cols.map(a => { const st = s.agents[a.id]?.status || 'unsupported'; return `<td><button class="st ${st}" title="${esc(s.agents[a.id]?.target || '')}" onclick="cellClick('${esc(s.name)}','${a.id}','${st}')">${STATUS_LABEL[st]}</button></td>`; }).join('')}
+    <td style="white-space:nowrap"><button class="btn sm" onclick="installSkill('${esc(s.name)}','all')">Install everywhere</button></td>
+  </tr>`).join('')}
+  </tbody></table>` : `<div class="empty">${S.skills.length ? 'No matches.' : 'The vault is empty. Adopt skills from your agents below, or create one.'}</div>`}
+  </div>
+  ${un.length ? `<h2>Found in your agents, not in the vault</h2>
+  <p class="help">Adopting copies a skill into the vault so it can be installed on every agent and device. The original stays where it is until you install the vault copy over it.</p>
+  ${un.map(a => {
+    const bundles = {}; for (const u of a.unadopted) (bundles[u.bundle || ''] ||= []).push(u);
+    return Object.entries(bundles).map(([b, list]) => `<div class="card" style="margin-bottom:10px">
+      <div class="actions" style="justify-content:space-between"><h3 style="margin:0">${esc(a.name)}${b ? ` <span class="chip">bundle: ${esc(b)}</span>` : ''} <span style="color:var(--muted);font-weight:400">· ${list.length}</span></h3>
+      <button class="btn sm" onclick='adoptMany(${JSON.stringify(list.map(u => ({ agent: a.id, name: u.name, bundle: u.bundle })))})'>Adopt all ${list.length}</button></div>
+      ${b ? `<details><summary>Show ${list.length} skills</summary>` : ''}
+      ${list.map(u => `<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--line)"><div><b>${esc(u.name)}</b><div style="color:var(--muted);font-size:12px">${esc(u.description)}</div></div><button class="btn sm" onclick="adopt('${a.id}','${esc(u.name)}',${u.bundle ? `'${esc(u.bundle)}'` : 'null'})">Adopt</button></div>`).join('')}
+      ${b ? '</details>' : ''}</div>`).join('');
+  }).join('')}` : ''}`;
+}
+function cellClick(name, agent, st) {
+  if (st === 'missing' || st === 'broken-link') return installSkill(name, agent);
+  if (st === 'linked' || st === 'copied') { if (confirm(`Remove "${name}" from ${agent}?`)) act(() => api('POST', '/api/skills/uninstall', { name, agent }), 'Removed'); return; }
+  if (st === 'diverged' || st === 'foreign-link') {
+    const c = prompt(`"${name}" in ${agent} differs from the vault.\n\nType "vault" to overwrite the agent copy with the vault version,\nor "agent" to pull the agent's version into the vault.`);
+    if (c === 'vault') return installSkill(name, agent);
+    if (c === 'agent') return act(() => api('POST', '/api/skills/pull', { name, agent }), 'Pulled into vault');
+  }
+}
+function installSkill(name, agent) { return act(() => api('POST', '/api/skills/install', { name, agent }), r => r.map(x => `${x.agent}: ${x.status}${x.note ? ' (' + x.note + ')' : ''}`).join(', ')); }
+function adopt(agent, name, bundle) { return act(() => api('POST', '/api/skills/adopt', { agent, name, bundle }), `Adopted ${name}`); }
+async function adoptMany(list) { let n = 0; for (const x of list) { try { await api('POST', '/api/skills/adopt', x); n++; } catch (e) { toast(e.message, true); } } toast(`Adopted ${n}`); refresh(); }
+async function newSkill() {
+  const name = prompt('Skill name (lowercase-with-dashes)'); if (!name) return;
+  const description = prompt('One-line description (when should an agent use it?)') || '';
+  await act(() => api('POST', '/api/skills', { name, description }), 'Created');
+  openSkill(name);
+}
+async function openSkill(name) {
+  const files = await api('GET', `/api/skills/${encodeURIComponent(name)}`);
+  const s = S.skills.find(x => x.name === name);
+  const main = files.find(f => f.path === 'SKILL.md');
+  $('#drawer').innerHTML = `
+    <div class="actions" style="justify-content:space-between"><h3 style="margin:0">${esc(name)}</h3><button class="btn sm" onclick="closeDrawer()">✕</button></div>
+    <p class="help">${esc(s?.description || '')}</p>
+    <div class="kv"><b>Path</b><code>${esc(s?.path || '')}</code><b>Files</b><span>${files.map(f => `<span class="chip">${esc(f.path)}</span>`).join('')}</span></div>
+    <h3 style="margin-top:14px">Where it's installed</h3>
+    ${fsAgents().map(a => { const st = s?.agents[a.id]?.status || 'missing'; return `<div style="display:flex;justify-content:space-between;padding:5px 0"><span>${esc(a.name)}</span><button class="st ${st}" onclick="cellClick('${esc(name)}','${a.id}','${st}');closeDrawer()">${STATUS_LABEL[st]}</button></div>`; }).join('')}
+    <h3 style="margin-top:14px">SKILL.md</h3>
+    <textarea id="skill-body" style="min-height:40vh">${esc(main?.content || '')}</textarea>
+    <div class="actions" style="margin-top:10px;justify-content:space-between">
+      <button class="btn primary" onclick="saveSkill('${esc(name)}')">Save</button>
+      <button class="btn danger" onclick="deleteSkill('${esc(name)}')">Delete from vault</button>
+    </div>`;
+  $('#drawer').classList.add('open'); $('#backdrop').classList.add('open');
+}
+function saveSkill(name) { act(() => api('PUT', `/api/skills/${encodeURIComponent(name)}/file`, { path: 'SKILL.md', content: $('#skill-body').value }), 'Saved'); }
+function deleteSkill(name) { if (confirm(`Delete "${name}" from the vault? Linked agents will lose it; copies stay.`)) { closeDrawer(); act(() => api('DELETE', `/api/skills/${encodeURIComponent(name)}`), 'Deleted'); } }
+function closeDrawer() { $('#drawer').classList.remove('open'); $('#backdrop').classList.remove('open'); }
+
+// ---------- Memory ----------
+function memory() {
+  const q = ui.memQ.toLowerCase();
+  const tags = [...new Set(S.memory.flatMap(m => m.tags))].sort();
+  const items = S.memory.filter(m => (!q || (m.title + m.body).toLowerCase().includes(q)) && (!ui.memTag || m.tags.includes(ui.memTag)));
+  const cur = S.memory.find(m => m.id === ui.memId) || null;
+  return `
+  <div class="actions" style="margin-bottom:12px">
+    <button class="btn primary" onclick="ui.memId='__new';render()">+ New</button>
+    <div class="menu"><button class="btn">Push to agents ▾</button><div>
+      <button onclick="pushMemory('all')">All agents</button>${memAgents().map(a => `<button onclick="pushMemory('${a.id}')">${esc(a.name)}</button>`).join('')}</div></div>
+    <div class="menu"><button class="btn">Import ▾</button><div>
+      ${S.agents.filter(a => a.kind === 'fs' && a.enabled && (a.memoryFiles?.length || a.memoryGlobs?.length)).map(a => `<button onclick="importFrom('${a.id}')">From ${esc(a.name)} files</button>`).join('')}
+      <button onclick="pasteImport()">Paste text (ChatGPT, notes…)</button></div></div>
+    <button class="btn" onclick="exportMemory()">Export for ChatGPT</button>
+    <input placeholder="Search…" value="${esc(ui.memQ)}" oninput="ui.memQ=this.value;render();this.focus();this.setSelectionRange(this.value.length,this.value.length)" style="max-width:220px">
+    <select onchange="ui.memTag=this.value;render()" style="max-width:160px"><option value="">All tags</option>${tags.map(t => `<option ${t === ui.memTag ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>
+  </div>
+  <div class="two">
+    <div class="list">${items.length ? items.map(m => `<div class="item ${m.id === ui.memId ? 'active' : ''}" onclick="ui.memId='${esc(m.id)}';render()"><div class="t">${esc(m.title)}</div><div class="m">${esc(m.scope)} · ${m.tags.map(t => `<span class="chip">${esc(t)}</span>`).join('') || '<span style="opacity:.6">no tags</span>'}</div><div class="m">${esc(m.body)}</div></div>`).join('') : '<div class="empty">Nothing here yet.</div>'}</div>
+    <div class="card">${ui.memId ? memoryForm(ui.memId === '__new' ? null : cur) : '<div class="empty">Select a memory item, or create one.<br><br>Memory items are plain markdown files in <code>vault/memory/</code>. "Push" writes them into each agent\'s memory file (CLAUDE.md, AGENTS.md, GEMINI.md…) inside a marked block that Cortex owns, leaving your own content alone.</div>'}</div>
+  </div>`;
+}
+function memoryForm(m) {
+  const agentsAll = !m || m.agents.includes('all');
+  const ag = S.agents.filter(a => a.enabled);
+  return `
+    <label class="f">Title</label><input id="m-title" value="${esc(m?.title || '')}">
+    <label class="f">Body (markdown)</label><textarea id="m-body">${esc(m?.body || '')}</textarea>
+    <div class="row">
+      <div style="flex:1"><label class="f">Tags (comma separated)</label><input id="m-tags" value="${esc((m?.tags || []).join(', '))}"></div>
+      <div style="flex:1"><label class="f">Scope</label><input id="m-scope" value="${esc(m?.scope || 'global')}" placeholder="global or project:name"></div>
+    </div>
+    <label class="f">Share with</label>
+    <div><label><input type="checkbox" id="m-all" ${agentsAll ? 'checked' : ''} onchange="document.querySelectorAll('.m-ag').forEach(c=>c.disabled=this.checked)" style="width:auto"> All agents</label>
+    ${ag.map(a => `<label style="margin-left:12px"><input type="checkbox" class="m-ag" value="${a.id}" ${!agentsAll && m?.agents.includes(a.id) ? 'checked' : ''} ${agentsAll ? 'disabled' : ''} style="width:auto"> ${esc(a.name)}</label>`).join('')}</div>
+    ${m?.source ? `<p class="help" style="margin-top:10px">Source: <code>${esc(m.source)}</code></p>` : ''}
+    <div class="actions" style="margin-top:14px;justify-content:space-between">
+      <button class="btn primary" onclick="saveMemory(${m ? `'${esc(m.id)}'` : 'null'})">Save</button>
+      ${m ? `<button class="btn danger" onclick="deleteMemory('${esc(m.id)}')">Delete</button>` : ''}
+    </div>`;
+}
+function saveMemory(id) {
+  const agents = $('#m-all').checked ? ['all'] : [...document.querySelectorAll('.m-ag:checked')].map(c => c.value);
+  const body = { id: id || undefined, title: $('#m-title').value, body: $('#m-body').value, tags: $('#m-tags').value.split(',').map(s => s.trim()).filter(Boolean), scope: $('#m-scope').value || 'global', agents: agents.length ? agents : ['all'] };
+  if (!body.title && !body.body) return toast('Add a title or body', true);
+  act(() => api('POST', '/api/memory', body).then(r => { ui.memId = r.id; return r; }), 'Saved');
+}
+function deleteMemory(id) { if (confirm('Delete this memory item?')) { ui.memId = null; act(() => api('DELETE', `/api/memory/${encodeURIComponent(id)}`), 'Deleted'); } }
+function pushMemory(agent) { act(() => api('POST', '/api/memory/push', { agent }), r => r.map(x => `${x.agent}: ${x.count} item(s)`).join(', ') || 'Nothing to push'); }
+function importFrom(agent) { act(() => api('POST', '/api/memory/import', { agent }), r => `Imported ${r.created.length}, skipped ${r.skipped.length} already-imported`); }
+function pasteImport() {
+  const text = prompt('Paste memory text. Each paragraph or bullet becomes one item.\n(In ChatGPT: Settings → Personalization → Manage memories, select all, copy.)');
+  if (text) act(() => api('POST', '/api/memory/import', { text, source: 'chatgpt' }), r => `Imported ${r.created.length}`);
+}
+async function exportMemory() {
+  const r = await api('GET', '/api/memory/export?agent=chatgpt&limit=1500');
+  $('#drawer').innerHTML = `
+    <div class="actions" style="justify-content:space-between"><h3 style="margin:0">Export for ChatGPT</h3><button class="btn sm" onclick="closeDrawer()">✕</button></div>
+    <p class="help">Paste into ChatGPT → Settings → Personalization → Custom instructions, or into a Project's instructions. ${r.count} item(s), ${r.chars} chars${r.overLimit ? ' — <b style="color:var(--warn)">over the 1500-char custom-instructions limit; trim or use a Project</b>' : ''}.</p>
+    <textarea id="exp" style="min-height:50vh">${esc(r.text)}</textarea>
+    <div class="actions" style="margin-top:10px"><button class="btn primary" onclick="navigator.clipboard.writeText($('#exp').value).then(()=>toast('Copied'))">Copy to clipboard</button></div>`;
+  $('#drawer').classList.add('open'); $('#backdrop').classList.add('open');
+}
+
+// ---------- Agents ----------
+function agents() {
+  return `<p class="help">Each agent is an adapter: where it reads skills from and which files hold its memory. Edit paths for your own agent (Instinct) or anything installed somewhere unusual, then Save.</p>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(340px,1fr))">
+  ${S.config.agents.map((a, i) => { const live = S.agents.find(x => x.id === a.id) || {}; const linked = S.skills.filter(s => ['linked', 'copied'].includes(s.agents[a.id]?.status)).length; return `
+    <div class="card" data-agent="${i}">
+      <div class="actions" style="justify-content:space-between"><h3 style="margin:0"><span class="dot ${live.detected ? 'on' : ''}"></span>${esc(a.name)} <span class="chip">${esc(a.kind)}</span>${a.custom ? '<span class="chip">custom</span>' : ''}</h3>
+        <label style="font-size:12px"><input type="checkbox" class="a-enabled" ${a.enabled ? 'checked' : ''} style="width:auto"> enabled</label></div>
+      ${a.notes ? `<p class="help">${esc(a.notes)}</p>` : ''}
+      ${a.kind === 'fs' ? `
+        <label class="f">Agent id</label><input class="a-id" value="${esc(a.id)}" ${a.custom ? '' : 'disabled'}>
+        <label class="f">Name</label><input class="a-name" value="${esc(a.name)}">
+        <label class="f">Skills directory ${live.skillsDirExists ? '<span style="color:var(--ok)">· exists</span>' : ''} ${a.skillsDir ? `· ${linked} from vault` : ''}</label><input class="a-skills" value="${esc(a.skillsDir || '')}" placeholder="(none)">
+        <label class="f">Memory files (one per line) ${live.memoryFilesResolved?.filter(f => f.exists).length ? `<span style="color:var(--ok)">· ${live.memoryFilesResolved.filter(f => f.exists).length} exist</span>` : ''}</label><textarea class="a-mem" style="min-height:56px">${esc((a.memoryFiles || []).join('\n'))}</textarea>
+        <label class="f">Memory globs (optional, one per line) ${live.memoryGlobFiles?.length ? `<span style="color:var(--ok)">· ${live.memoryGlobFiles.length} files</span>` : ''}</label><textarea class="a-globs" style="min-height:40px">${esc((a.memoryGlobs || []).join('\n'))}</textarea>
+      ` : `<p class="help">Use <b>Memory → Import → Paste</b> to bring memories in and <b>Export for ChatGPT</b> to take them out.</p>`}
+      ${a.custom ? `<div class="actions" style="margin-top:10px"><button class="btn sm danger" onclick="removeAgent(${i})">Remove agent</button></div>` : ''}
+    </div>`; }).join('')}
+  </div>
+  <div class="actions" style="margin-top:14px">
+    <button class="btn primary" onclick="saveAgents()">Save agents</button>
+    <button class="btn" onclick="addAgent()">+ Add custom agent</button>
+    <button class="btn" onclick="if(confirm('Reset all agents to defaults?'))act(()=>api('POST','/api/config/reset-agents'),'Reset')">Reset to defaults</button>
+  </div>`;
+}
+function collectAgents() {
+  return S.config.agents.map((a, i) => {
+    const el = document.querySelector(`[data-agent="${i}"]`); if (!el) return a;
+    const lines = s => s.split('\n').map(x => x.trim()).filter(Boolean);
+    const next = { ...a, enabled: $('.a-enabled', el).checked };
+    if (a.kind === 'fs') { next.id = $('.a-id', el).value.trim(); next.name = $('.a-name', el).value.trim(); next.skillsDir = $('.a-skills', el).value.trim() || null; next.memoryFiles = lines($('.a-mem', el).value); next.memoryGlobs = lines($('.a-globs', el).value); }
+    return next;
+  });
+}
+function saveAgents() { act(() => api('PUT', '/api/config', { agents: collectAgents() }), 'Agents saved'); }
+function addAgent() { S.config.agents = [...collectAgents(), { id: 'my-agent-' + (S.config.agents.length + 1), name: 'My agent', kind: 'fs', enabled: true, custom: true, skillsDir: '~/my-agent/skills', memoryFiles: ['~/my-agent/MEMORY.md'] }]; render(); }
+function removeAgent(i) { S.config.agents = collectAgents().filter((_, j) => j !== i); render(); }
+
+// ---------- Devices ----------
+function devices() {
+  return `<p class="help">Every device that opens this vault registers itself here (stored in <code>vault/devices.json</code>, so it travels with the vault). Sync the vault to see other devices.</p>
+  <div class="card" style="padding:0"><table><thead><tr><th>Device</th><th>Platform</th><th>Agents seen</th><th>Vault path</th><th>Last seen</th></tr></thead><tbody>
+  ${S.devices.map(d => `<tr><td><b>${esc(d.name)}</b>${d.id === S.device.id ? ' <span class="chip">this device</span>' : ''}<div style="color:var(--muted);font-size:11px">${esc(d.id)}</div></td><td>${esc(d.platform)}</td><td>${(d.agents || []).map(a => `<span class="chip">${esc(a)}</span>`).join('')}</td><td><code>${esc(d.vaultPath || '')}</code></td><td>${esc((d.lastSeen || '').replace('T', ' ').slice(0, 16))}</td></tr>`).join('')}
+  </tbody></table></div>
+  <div class="actions" style="margin-top:12px"><button class="btn" onclick="renameDevice()">Rename this device</button></div>`;
+}
+
+// ---------- Settings ----------
+function settings() {
+  const c = S.config, git = S.storage.git;
+  return `
+  <div class="card">
+    <h3>Vault location</h3>
+    <p class="help">A plain folder holding <code>skills/</code> and <code>memory/</code>. Point it at a folder inside iCloud Drive, Dropbox, Google Drive, or Syncthing and every device sharing that folder sees the same vault — no server needed.</p>
+    <input id="s-vault" value="${esc(c.vaultPath)}">
+    <h3 style="margin-top:20px">Storage mode</h3>
+    <div class="radio" id="s-mode">
+      ${[['local', 'Local only', 'Lives on this device. Sync by hand (or switch later).'], ['folder', 'Synced folder', 'iCloud / Dropbox / Drive / Syncthing keeps devices in sync. Set the vault path to that folder.'], ['git', 'Git remote', 'Private GitHub/GitLab repo. Versioned, works across OSes; one-click Sync pulls & pushes.']].map(([v, t, d]) => `<label class="${c.storage.mode === v ? 'on' : ''}"><input type="radio" name="mode" value="${v}" ${c.storage.mode === v ? 'checked' : ''} onchange="document.querySelectorAll('#s-mode label').forEach(l=>l.classList.toggle('on',l.querySelector('input').checked))"><b>${t}</b><span>${d}</span></label>`).join('')}
+    </div>
+    <label class="f">Git remote (for git mode)</label><input id="s-remote" value="${esc(c.storage.gitRemote || '')}" placeholder="git@github.com:you/cortex-vault.git">
+    ${git?.isRepo ? `<p class="help" style="margin-top:8px">Repo: branch <code>${esc(git.branch)}</code>, ${git.remote ? `remote <code>${esc(git.remote)}</code>` : 'no remote'}, ${git.dirty} uncommitted, ${git.ahead} ahead / ${git.behind} behind${git.last ? `, last: ${esc(git.last)}` : ''}</p>` : (S.storage.gitAvailable ? '' : '<p class="help" style="color:var(--warn)">git is not installed on this device; git mode is unavailable.</p>')}
+    <h3 style="margin-top:20px">How skills reach agents</h3>
+    <div class="radio" id="s-link">
+      ${[['symlink', 'Symlink (recommended)', 'Agents read the vault folder directly. Edit once, every agent sees it.'], ['copy', 'Copy', 'Agents get an independent copy. Use when symlinks are awkward (some Windows setups, some sync services).']].map(([v, t, d]) => `<label class="${c.linkMode === v ? 'on' : ''}"><input type="radio" name="link" value="${v}" ${c.linkMode === v ? 'checked' : ''} onchange="document.querySelectorAll('#s-link label').forEach(l=>l.classList.toggle('on',l.querySelector('input').checked))"><b>${t}</b><span>${d}</span></label>`).join('')}
+    </div>
+    <div class="actions" style="margin-top:18px"><button class="btn primary" onclick="saveSettings()">Save settings</button></div>
+  </div>
+  <h2>For your own agent</h2>
+  <div class="card">
+    <p class="help">Everything in this UI is available over HTTP on this machine, so Instinct (or any script) can read the vault and manage skills and memory:</p>
+    <pre>GET  /api/state                 everything: skills matrix, memory, agents, devices
+GET  /api/skills/&lt;name&gt;         files of one skill
+GET  /api/memory                list memory      POST /api/memory   {title, body, tags, scope, agents}
+GET  /api/memory/export?agent=instinct   plain-text memory bundle for a system prompt
+POST /api/skills/install        {name, agent}    POST /api/memory/push  {agent}
+POST /api/sync</pre>
+    <p class="help">Or the CLI: <code>cortex status --json</code>, <code>cortex memory export instinct</code>, <code>cortex install &lt;skill&gt; instinct</code>.</p>
+  </div>`;
+}
+function saveSettings() {
+  const patch = { vaultPath: $('#s-vault').value.trim(), storage: { mode: $('input[name=mode]:checked').value, gitRemote: $('#s-remote').value.trim() }, linkMode: $('input[name=link]:checked').value };
+  act(() => api('PUT', '/api/config', patch), 'Settings saved');
+}
+async function doSync() { const b = $('#sync-btn'); b.disabled = true; try { const r = await api('POST', '/api/sync'); toast(r.log.join(' · '), !r.ok); await refresh(); } catch (e) { toast(e.message, true); } b.disabled = false; }
+
+refresh().then(() => setView('overview')).catch(e => toast(e.message, true));
+</script>
+</body>
+</html>

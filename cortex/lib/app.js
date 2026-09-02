@@ -1,0 +1,98 @@
+// Shared application layer used by both the HTTP server and the CLI.
+// Every operation loads config fresh so edits from either side are seen.
+
+import { loadConfig, saveConfig, loadDevice, saveDevice, vaultPath, collapseHome, DEFAULT_AGENTS } from './config.js';
+import {
+  ensureVault, listSkills, listMemory, listDevices, touchDevice, readSkillFiles, writeSkillFile,
+  createSkill, deleteSkill, saveMemory, deleteMemory, readMemory,
+} from './vault.js';
+import {
+  scan, adoptSkill, installSkill, uninstallSkill, pullSkill, pushMemory,
+  importMemoryFromAgent, exportMemoryText, importMemoryText,
+} from './agents.js';
+import { gitStatus, gitAvailable, sync as gitSync, initGit } from './sync.js';
+
+export function context() {
+  const config = loadConfig();
+  const vault = ensureVault(vaultPath(config));
+  const device = loadDevice();
+  return { config, vault, device };
+}
+
+export function getState() {
+  const { config, vault, device } = context();
+  const scanned = scan(config, vault);
+  const memory = listMemory(vault);
+  const devices = touchDevice(vault, device, {
+    agents: scanned.agents.filter(a => a.detected).map(a => a.id),
+    vaultPath: collapseHome(vault),
+  });
+  return {
+    device,
+    devices,
+    config: { ...config, vaultPathResolved: vault },
+    storage: { ...config.storage, git: config.storage.mode === 'git' || gitStatus(vault).isRepo ? gitStatus(vault) : null, gitAvailable: gitAvailable() },
+    skills: scanned.skills,
+    agents: scanned.agents,
+    memory,
+    counts: {
+      skills: scanned.skills.length,
+      memory: memory.length,
+      unadopted: scanned.agents.reduce((n, a) => n + a.unadopted.length, 0),
+      agentsDetected: scanned.agents.filter(a => a.detected).length,
+    },
+  };
+}
+
+export const ops = {
+  scan: () => getState(),
+
+  skill: (name) => { const { vault } = context(); return readSkillFiles(vault, name); },
+  createSkill: ({ name, description, body }) => { const { vault } = context(); return createSkill(vault, name, description, body); },
+  writeSkillFile: ({ name, path: rel, content }) => { const { vault } = context(); writeSkillFile(vault, name, rel, content); return { ok: true }; },
+  deleteSkill: ({ name }) => { const { vault } = context(); deleteSkill(vault, name); return { ok: true }; },
+  adopt: ({ agent, name, bundle }) => { const { config, vault } = context(); return adoptSkill(config, vault, agent, name, { bundle }); },
+  install: ({ name, agent, mode }) => {
+    const { config, vault } = context();
+    const targets = agent === 'all' ? config.agents.filter(a => a.kind === 'fs' && a.enabled && a.skillsDir).map(a => a.id) : [agent];
+    return targets.map(id => ({ agent: id, ...installSkill(config, vault, name, id, mode) }));
+  },
+  uninstall: ({ name, agent }) => { const { config, vault } = context(); return uninstallSkill(config, vault, name, agent); },
+  pull: ({ name, agent }) => { const { config, vault } = context(); return pullSkill(config, vault, name, agent); },
+
+  memory: (id) => { const { vault } = context(); return readMemory(vault, id); },
+  saveMemory: (item) => { const { vault } = context(); return saveMemory(vault, item); },
+  deleteMemory: ({ id }) => { const { vault } = context(); deleteMemory(vault, id); return { ok: true }; },
+  pushMemory: ({ agent }) => {
+    const { config, vault, device } = context();
+    const targets = agent === 'all' ? config.agents.filter(a => a.kind === 'fs' && a.enabled && a.memoryFiles?.length).map(a => a.id) : [agent];
+    return targets.map(id => ({ agent: id, ...pushMemory(config, vault, id, device) }));
+  },
+  importMemory: ({ agent, text, source, agents }) => {
+    const { config, vault, device } = context();
+    if (text != null) return importMemoryText(vault, text, { source: source || agent || 'paste', agents });
+    return importMemoryFromAgent(config, vault, agent, device);
+  },
+  exportMemory: ({ agent = 'chatgpt', limit } = {}) => { const { vault } = context(); return exportMemoryText(vault, agent, { limit: limit ? Number(limit) : undefined }); },
+
+  sync: () => {
+    const { config, vault, device } = context();
+    return gitSync(vault, { device, remote: config.storage.gitRemote });
+  },
+  initGit: ({ remote }) => { const { vault } = context(); return { log: initGit(vault, remote), status: gitStatus(vault) }; },
+
+  config: () => loadConfig(),
+  saveConfig: (patch) => {
+    const current = loadConfig();
+    const next = { ...current, ...patch, storage: { ...current.storage, ...(patch.storage || {}) } };
+    if (patch.agents) next.agents = patch.agents;
+    saveConfig(next);
+    if (next.storage.mode === 'git' && next.storage.gitRemote) initGit(vaultPath(next), next.storage.gitRemote);
+    return loadConfig();
+  },
+  resetAgents: () => { const c = loadConfig(); c.agents = DEFAULT_AGENTS.map(a => ({ ...a })); saveConfig(c); return c; },
+  renameDevice: ({ name }) => { const d = loadDevice(); d.name = name; return saveDevice(d); },
+  devices: () => { const { vault } = context(); return listDevices(vault); },
+  listSkills: () => { const { vault } = context(); return listSkills(vault); },
+  listMemory: () => { const { vault } = context(); return listMemory(vault); },
+};

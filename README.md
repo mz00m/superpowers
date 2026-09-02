@@ -15,6 +15,17 @@ Next up, once you say "go", it launches a *subagent-driven-development* process,
 There's a bunch more to it, but that's the core of the system. And because the skills trigger automatically, you don't need to do anything special. Your coding agent just has Superpowers.
 
 
+## Cortex: skills + memory across devices and agents
+
+This fork adds **Cortex** (`cortex/`), a zero-dependency local app that keeps one vault of skills and memory and links every agent on every device to it (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, ChatGPT via paste/export, and your own agent). Choose local, synced-folder, or git storage.
+
+```bash
+node cortex/cli.js serve   # web UI at http://localhost:4747
+node cortex/cli.js status  # CLI
+```
+
+See [cortex/README.md](cortex/README.md) and the `managing-skills-and-memory` skill.
+
 ## Sponsorship
 
 If Superpowers has helped you do stuff that makes money and you are so inclined, I'd greatly appreciate it if you'd consider [sponsoring my opensource work](https://github.com/sponsors/obra).
