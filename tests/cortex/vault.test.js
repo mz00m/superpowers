@@ -101,3 +101,10 @@ test('folder name is canonical; frontmatter name surfaces as title', () => {
   assert.equal(s.name, 'session-start-hook');
   assert.equal(s.title, 'startup-hook-skill');
 });
+
+test('parseFrontmatter handles YAML block scalars (> and |)', () => {
+  const { data } = parseFrontmatter('---\nname: pg-writer\ndescription: >\n  Write essays like PG.\n  Trigger on "essay".\nnotes: |\n  line one\n  line two\ntags: [a]\n---\nbody');
+  assert.equal(data.description, 'Write essays like PG. Trigger on "essay".');
+  assert.equal(data.notes, 'line one\nline two');
+  assert.deepEqual(data.tags, ['a']);
+});

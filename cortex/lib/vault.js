@@ -17,11 +17,17 @@ export function parseFrontmatter(text) {
   const m = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/.exec(text);
   if (!m) return { data: {}, body: text };
   const data = {};
-  for (const line of m[1].split(/\r?\n/)) {
-    const kv = /^([A-Za-z0-9_-]+):\s*(.*)$/.exec(line);
+  const lines = m[1].split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const kv = /^([A-Za-z0-9_-]+):\s*(.*)$/.exec(lines[i]);
     if (!kv) continue;
     let v = kv[2].trim();
-    if (/^\[.*\]$/.test(v)) {
+    if (v === '>' || v === '|' || v === '>-' || v === '|-') {
+      // YAML block scalar: gather indented continuation lines
+      const block = [];
+      while (i + 1 < lines.length && (/^\s+\S/.test(lines[i + 1]) || lines[i + 1].trim() === '')) block.push(lines[++i].trim());
+      v = v.startsWith('>') ? block.join(' ').replace(/\s+/g, ' ').trim() : block.join('\n').trim();
+    } else if (/^\[.*\]$/.test(v)) {
       v = v.slice(1, -1).split(',').map(s => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
     } else if (/^["'].*["']$/.test(v)) {
       v = v.slice(1, -1);
