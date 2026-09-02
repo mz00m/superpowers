@@ -87,6 +87,11 @@ pre{background:var(--code);padding:12px;border-radius:8px;overflow:auto;max-heig
 .empty{color:var(--muted);padding:24px;text-align:center;border:1px dashed var(--line);border-radius:12px}
 .bar{height:8px;background:var(--chip);border-radius:99px;overflow:hidden;margin-top:8px}
 .bar i{display:block;height:100%;background:var(--ok)}
+.diff{border:1px solid var(--line);border-radius:8px;overflow:auto;max-height:60vh;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
+.dl{display:grid;grid-template-columns:1fr 1fr}
+.dl span{padding:1px 8px;white-space:pre-wrap;word-break:break-word;border-right:1px solid var(--line);min-height:1.4em}
+.dl.del span:first-child{background:color-mix(in srgb,var(--bad) 14%,transparent)}
+.dl.add span:last-child{background:color-mix(in srgb,var(--ok) 14%,transparent)}
 details summary{cursor:pointer;color:var(--muted);font-size:13px;margin:6px 0}
 .kv{display:grid;grid-template-columns:140px 1fr;gap:4px 12px;font-size:13px}
 .kv b{color:var(--muted);font-weight:600}
@@ -103,6 +108,7 @@ details summary{cursor:pointer;color:var(--muted);font-size:13px;margin:6px 0}
   <div class="brand">🧠 Cortex <small>skills + memory, everywhere</small></div>
   <button data-view="overview">Overview</button>
   <button data-view="skills">Skills <span class="n" id="n-skills"></span></button>
+  <button data-view="conflicts">Conflicts <span class="n" id="n-conflicts"></span></button>
   <button data-view="memory">Memory <span class="n" id="n-memory"></span></button>
   <button data-view="agents">Agents <span class="n" id="n-agents"></span></button>
   <button data-view="devices">Devices <span class="n" id="n-devices"></span></button>
@@ -140,7 +146,7 @@ async function act(fn, okMsg) { try { const r = await fn(); if (okMsg) toast(typ
 
 async function refresh(announce) {
   S = await api('GET', '/api/state');
-  $('#n-skills').textContent = S.counts.skills; $('#n-memory').textContent = S.counts.memory;
+  $('#n-skills').textContent = S.counts.skills; $('#n-memory').textContent = S.counts.memory; $('#n-conflicts').textContent = S.counts.conflicts || '';
   $('#n-agents').textContent = S.counts.agentsDetected; $('#n-devices').textContent = S.devices.length;
   $('#nav-device').innerHTML = `<b>${esc(S.device.name)}</b>${esc(S.config.vaultPath)}<br>${esc(S.storage.mode)}${S.storage.git?.isRepo ? `${S.storage.mode !== 'git' ? ' · git' : ''}${S.storage.git.dirty ? ` · ${S.storage.git.dirty} unsynced` : ''}` : ''}`;
   $('#sync-btn').style.display = S.storage.mode === 'git' || S.storage.git?.isRepo ? '' : 'none';
@@ -151,8 +157,9 @@ function setView(v) { view = v; document.querySelectorAll('nav button[data-view]
 document.querySelectorAll('nav button[data-view]').forEach(b => b.onclick = () => setView(b.dataset.view));
 function render() {
   if (!S) return;
-  $('#title').textContent = { overview: 'Overview', skills: 'Skills', memory: 'Memory', agents: 'Agents', devices: 'Devices', settings: 'Settings' }[view];
-  $('#view').innerHTML = ({ overview, skills, memory, agents, devices, settings })[view]();
+  $('#title').textContent = { overview: 'Overview', skills: 'Skills', conflicts: 'Conflicts', memory: 'Memory', agents: 'Agents', devices: 'Devices', settings: 'Settings' }[view];
+  $('#view').innerHTML = ({ overview, skills, conflicts, memory, agents, devices, settings })[view]();
+  if (view === 'conflicts' && !ui.conflicts) loadConflicts();
   document.querySelectorAll('.menu > button').forEach(b => b.onclick = e => { e.stopPropagation(); const m = b.parentElement; document.querySelectorAll('.menu.open').forEach(x => x !== m && x.classList.remove('open')); m.classList.toggle('open'); });
 }
 document.addEventListener('click', () => document.querySelectorAll('.menu.open').forEach(m => m.classList.remove('open')));
@@ -179,6 +186,7 @@ function overview() {
       <p class="help">${linked} of ${cells} skill × agent slots are installed on this device.</p>
       <div class="bar"><i style="width:${pct}%"></i></div>
       ${S.counts.unadopted ? `<p class="help" style="margin-top:12px">⚠️ ${S.counts.unadopted} skill(s) live in your agents but not the vault. <a href="#" onclick="setView('skills');return false">Adopt them →</a></p>` : ''}
+      ${S.counts.conflicts ? `<p class="help">⚠️ ${S.counts.conflicts} pair(s) of skills are identical, share a name, or look alike. <a href="#" onclick="setView('conflicts');return false">Deconflict →</a></p>` : ''}
       <h3 style="margin-top:18px">This device</h3>
       <div class="kv">
         <b>Name</b><span>${esc(S.device.name)} <button class="btn sm" onclick="renameDevice()">rename</button></span>
@@ -247,8 +255,36 @@ function cellClick(name, agent, st) {
   }
 }
 function installSkill(name, agent) { return act(() => api('POST', '/api/skills/install', { name, agent }), r => r.map(x => `${x.agent}: ${x.status}${x.note ? ' (' + x.note + ')' : ''}`).join(', ')); }
-function adopt(agent, name, bundle) { return act(() => api('POST', '/api/skills/adopt', { agent, name, bundle }), `Adopted ${name}`); }
-async function adoptMany(list) { let n = 0; for (const x of list) { try { await api('POST', '/api/skills/adopt', x); n++; } catch (e) { toast(e.message, true); } } toast(`Adopted ${n}`); refresh(); }
+async function adoptOne(x) {
+  const r = await fetch('/api/skills/adopt', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(x) });
+  const data = await r.json();
+  if (r.status === 409) return resolveAdoptConflict(x, data.conflict);
+  if (!r.ok) throw new Error(data.error);
+  return data;
+}
+function resolveAdoptConflict(x, c) {
+  return new Promise(resolve => {
+    $('#drawer').innerHTML = `
+      <div class="actions" style="justify-content:space-between"><h3 style="margin:0">"${esc(c.name)}" already in vault</h3><button class="btn sm" id="cx-close">✕</button></div>
+      <p class="help">The vault's copy differs from the one in <b>${esc(x.agent)}</b>${x.bundle ? ` (${esc(x.bundle)})` : ''}.</p>
+      <div class="kv"><b>Vault</b><span>${c.vault?.files} file(s), updated ${esc((c.vault?.updated || '').slice(0, 10))}</span><b>Incoming</b><span>${c.incoming?.files} file(s), updated ${esc((c.incoming?.updated || '').slice(0, 10))}</span></div>
+      <div class="actions" style="margin-top:16px;flex-direction:column;align-items:stretch">
+        <button class="btn" id="cx-compare">Compare side by side</button>
+        <button class="btn" id="cx-keep">Keep vault version (skip)</button>
+        <button class="btn" id="cx-replace">Replace vault with incoming</button>
+        <button class="btn" id="cx-as">Keep both — adopt incoming as <code>${esc(c.name)}-${esc(x.agent)}</code></button>
+      </div>`;
+    $('#drawer').classList.add('open'); $('#backdrop').classList.add('open');
+    const done = v => { closeDrawer(); resolve(v); };
+    $('#cx-close').onclick = () => done(null);
+    $('#cx-keep').onclick = () => done({ skipped: true });
+    $('#cx-replace').onclick = () => api('POST', '/api/skills/adopt', { ...x, replace: true }).then(done, e => { toast(e.message, true); done(null); });
+    $('#cx-as').onclick = () => { const as = prompt('Name for the incoming copy', `${c.name}-${x.agent}`); if (!as) return done(null); api('POST', '/api/skills/adopt', { ...x, as }).then(done, e => { toast(e.message, true); done(null); }); };
+    $('#cx-compare').onclick = () => { closeDrawer(); ui.compare = [`vault/${c.name}`, `${x.agent}/${x.bundle ? x.bundle + '/' : ''}${x.name}`]; ui.conflicts = null; setView('conflicts'); resolve(null); };
+  });
+}
+async function adopt(agent, name, bundle) { try { const r = await adoptOne({ agent, name, bundle }); if (r && !r.skipped) toast(`Adopted ${name}`); } catch (e) { toast(e.message, true); } refresh(); }
+async function adoptMany(list) { let n = 0; for (const x of list) { try { const r = await adoptOne(x); if (r && !r.skipped) n++; } catch (e) { toast(e.message, true); } } toast(`Adopted ${n}`); refresh(); }
 async function newSkill() {
   const name = prompt('Skill name (lowercase-with-dashes)'); if (!name) return;
   const description = prompt('One-line description (when should an agent use it?)') || '';
@@ -275,7 +311,75 @@ async function openSkill(name) {
 }
 function saveSkill(name) { act(() => api('PUT', `/api/skills/${encodeURIComponent(name)}/file`, { path: 'SKILL.md', content: $('#skill-body').value }), 'Saved'); }
 function deleteSkill(name) { if (confirm(`Delete "${name}" from the vault? Linked agents will lose it; copies stay.`)) { closeDrawer(); act(() => api('DELETE', `/api/skills/${encodeURIComponent(name)}`), 'Deleted'); } }
-function closeDrawer() { $('#drawer').classList.remove('open'); $('#backdrop').classList.remove('open'); }
+function closeDrawer() { $('#drawer').classList.remove('open'); $('#backdrop').classList.remove('open'); $('#drawer').style.width = ''; }
+
+// ---------- Conflicts ----------
+const KIND = { identical: ['Identical', 'Same content in two places. Safe to adopt once and link everywhere.'], 'same-name': ['Same name, different content', 'Two versions of one skill. Pick a winner, or keep both under different names.'], similar: ['Looks similar', 'Different names, overlapping purpose. Merge, or mark as intentionally distinct.'] };
+async function loadConflicts() {
+  ui.conflicts = await api('GET', `/api/conflicts?threshold=${ui.threshold || 0.3}`);
+  render();
+  if (ui.compare) { const [a, b] = ui.compare; ui.compare = null; openCompare(a, b); }
+}
+function conflicts() {
+  const c = ui.conflicts;
+  if (!c) return '<div class="empty scanning">Scanning for duplicates…</div>';
+  const groups = {}; for (const p of c.pairs) (groups[p.kind] ||= []).push(p);
+  const where = k => k.startsWith('vault/') ? `<span class="chip" style="background:color-mix(in srgb,var(--accent) 15%,transparent)">vault</span>` : `<span class="chip">${esc(k.split('/')[0])}</span>`;
+  const shortName = k => k.split('/').pop();
+  return `
+  <div class="actions" style="margin-bottom:12px">
+    <span style="color:var(--muted);font-size:13px">Compares every skill in the vault and in every agent — by content hash, name, and text similarity.</span>
+    <label style="font-size:12px;color:var(--muted);margin-left:auto">Similarity threshold <input type="range" min="0.1" max="0.8" step="0.05" value="${ui.threshold || 0.3}" style="width:120px;vertical-align:middle" onchange="ui.threshold=this.value;ui.conflicts=null;render();loadConflicts()"> ${ui.threshold || 0.3}</label>
+    <button class="btn" onclick="ui.conflicts=null;render();loadConflicts()">↻</button>
+  </div>
+  ${c.pairs.length ? Object.entries(KIND).filter(([k]) => groups[k]).map(([k, [title, help]]) => `
+    <h2>${title} <span style="text-transform:none;letter-spacing:0;font-weight:400">· ${groups[k].length}</span></h2>
+    <p class="help">${help}</p>
+    <div class="card" style="padding:0"><table><thead><tr><th>A</th><th>B</th><th>Score</th><th></th></tr></thead><tbody>
+    ${groups[k].map(p => `<tr>
+      <td>${where(p.a.key)} <b>${esc(shortName(p.a.key))}</b><div style="color:var(--muted);font-size:12px;max-width:36ch;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.a.description)}</div></td>
+      <td>${where(p.b.key)} <b>${esc(shortName(p.b.key))}</b><div style="color:var(--muted);font-size:12px;max-width:36ch;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.b.description)}</div></td>
+      <td>${Math.round(p.score * 100)}%</td>
+      <td style="white-space:nowrap"><button class="btn sm" onclick="openCompare('${esc(p.a.key)}','${esc(p.b.key)}')">Compare</button> ${quickActions(p)} <button class="btn sm" onclick="markDistinct('${esc(p.a.key)}','${esc(p.b.key)}')">Distinct</button></td>
+    </tr>`).join('')}
+    </tbody></table></div>`).join('') : '<div class="empty">No duplicates or look-alikes found. 🎉</div>'}
+  ${Object.keys(c.distinct).length ? `<details style="margin-top:16px"><summary>${Object.keys(c.distinct).length} pair(s) marked distinct</summary>${Object.entries(c.distinct).map(([k, v]) => `<div style="padding:4px 0;font-size:13px"><code>${esc(k)}</code> ${v.note ? `— ${esc(v.note)}` : ''} <button class="btn sm" onclick="unmarkDistinct('${esc(k)}')">undo</button></div>`).join('')}</details>` : ''}`;
+}
+function quickActions(p) {
+  const out = [];
+  const agentSide = [p.a, p.b].find(x => !x.key.startsWith('vault/'));
+  const vaultSide = [p.a, p.b].find(x => x.key.startsWith('vault/'));
+  if (agentSide && !vaultSide) out.push(`<button class="btn sm" onclick="adoptKey('${esc(agentSide.key)}')">Adopt ${esc(agentSide.name)}</button>`);
+  if (agentSide && vaultSide && p.kind === 'identical') out.push(`<button class="btn sm" onclick="installSkill('${esc(vaultSide.name)}','${esc(agentSide.agent)}')">Link to vault</button>`);
+  if (agentSide && vaultSide && p.kind === 'same-name') out.push(`<button class="btn sm" onclick="adoptKey('${esc(agentSide.key)}')">Resolve…</button>`);
+  if (!agentSide) out.push(`<button class="btn sm danger" onclick="deleteOne('${esc(p.a.name)}','${esc(p.b.name)}')">Delete one…</button>`);
+  return out.join(' ');
+}
+function keyToAdopt(key) { const [agent, ...rest] = key.split('/'); const name = rest.pop(); return { agent, name, bundle: rest.length ? rest.join('/') : undefined }; }
+async function adoptKey(key) { const x = keyToAdopt(key); try { const r = await adoptOne(x); if (r && !r.skipped) toast(r.adopted === false ? r.reason : `Adopted ${x.name}`); } catch (e) { toast(e.message, true); } ui.conflicts = null; await refresh(); loadConflicts(); }
+function deleteOne(a, b) { const which = prompt(`Delete which vault skill? Type "${a}" or "${b}"`); if (which === a || which === b) act(() => api('DELETE', `/api/skills/${encodeURIComponent(which)}`).then(() => { ui.conflicts = null; loadConflicts(); }), `Deleted ${which}`); }
+function markDistinct(a, b) { const note = prompt('Why are these different? (optional note)') ?? ''; act(() => api('POST', '/api/conflicts/distinct', { a, b, note }).then(() => { ui.conflicts = null; loadConflicts(); }), 'Marked distinct'); }
+function unmarkDistinct(k) { const [a, b] = k.split(' :: '); act(() => api('DELETE', '/api/conflicts/distinct', { a, b }).then(() => { ui.conflicts = null; loadConflicts(); }), 'Unmarked'); }
+async function openCompare(a, b) {
+  let r; try { r = await api('GET', `/api/conflicts/compare?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`); } catch (e) { return toast(e.message, true); }
+  const row = l => l.t === ' ' ? `<div class="dl"><span>${esc(l.a)}</span><span>${esc(l.b)}</span></div>` : l.t === '-' ? `<div class="dl del"><span>${esc(l.a)}</span><span></span></div>` : `<div class="dl add"><span></span><span>${esc(l.b)}</span></div>`;
+  const changed = r.diff.filter(l => l.t !== ' ').length;
+  $('#drawer').style.width = 'min(1100px,96vw)';
+  $('#drawer').innerHTML = `
+    <div class="actions" style="justify-content:space-between"><h3 style="margin:0">Compare</h3><button class="btn sm" onclick="closeDrawer()">✕</button></div>
+    <div class="grid" style="grid-template-columns:1fr 1fr;margin:10px 0">
+      <div><b>${esc(r.a.key)}</b><div style="color:var(--muted);font-size:12px">${r.a.files} file(s) · updated ${esc((r.a.updated || '').slice(0, 10))}<br><code>${esc(r.a.path)}</code></div></div>
+      <div><b>${esc(r.b.key)}</b><div style="color:var(--muted);font-size:12px">${r.b.files} file(s) · updated ${esc((r.b.updated || '').slice(0, 10))}<br><code>${esc(r.b.path)}</code></div></div>
+    </div>
+    <p class="help">${changed ? `${changed} line(s) differ in SKILL.md` : 'SKILL.md is identical (other files may differ)'}.</p>
+    <div class="diff">${r.diff.map(row).join('')}</div>
+    <div class="actions" style="margin-top:12px">
+      ${!r.a.key.startsWith('vault/') ? `<button class="btn" onclick="closeDrawer();adoptKey('${esc(r.a.key)}')">Adopt A into vault</button>` : ''}
+      ${!r.b.key.startsWith('vault/') ? `<button class="btn" onclick="closeDrawer();adoptKey('${esc(r.b.key)}')">Adopt B into vault</button>` : ''}
+      <button class="btn" onclick="closeDrawer();markDistinct('${esc(r.a.key)}','${esc(r.b.key)}')">Mark distinct</button>
+    </div>`;
+  $('#drawer').classList.add('open'); $('#backdrop').classList.add('open');
+}
 
 // ---------- Memory ----------
 function memory() {

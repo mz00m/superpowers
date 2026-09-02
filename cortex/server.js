@@ -30,6 +30,10 @@ const routes = [
   ['POST', '/api/skills/install', (_, body) => ops.install(body)],
   ['POST', '/api/skills/uninstall', (_, body) => ops.uninstall(body)],
   ['POST', '/api/skills/pull', (_, body) => ops.pull(body)],
+  ['GET', '/api/conflicts', (_, __, q) => ops.conflicts(q)],
+  ['GET', '/api/conflicts/compare', (_, __, q) => ops.compare(q)],
+  ['POST', '/api/conflicts/distinct', (_, body) => ops.markDistinct(body)],
+  ['DELETE', '/api/conflicts/distinct', (_, body) => ops.unmarkDistinct(body)],
   ['GET', '/api/memory', () => ops.listMemory()],
   ['POST', '/api/memory', (_, body) => ops.saveMemory(body)],
   ['GET', '/api/memory/export', (_, __, q) => ops.exportMemory(q)],
@@ -98,7 +102,7 @@ export function createServer() {
       if (result === null || result === undefined) return send(res, 404, { error: 'not found' });
       send(res, 200, result);
     } catch (err) {
-      send(res, 400, { error: err.message });
+      send(res, err.conflict ? 409 : 400, { error: err.message, conflict: err.conflict });
     }
   });
 }

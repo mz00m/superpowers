@@ -38,11 +38,20 @@ test('adopt -> install(symlink) -> status linked -> uninstall -> missing', () =>
   writeSkill(path.join(home, '.claude', 'skills'), 'alpha');
   adoptSkill(config, vault, 'claude-code', 'alpha');
   assert.equal(listSkills(vault)[0].name, 'alpha');
-  assert.throws(() => adoptSkill(config, vault, 'claude-code', 'alpha'), /already has/);
+  assert.equal(adoptSkill(config, vault, 'claude-code', 'alpha').adopted, false); // identical: no-op
+  fs.appendFileSync(path.join(home, '.claude', 'skills', 'alpha', 'SKILL.md'), 'changed\n');
+  assert.throws(() => adoptSkill(config, vault, 'claude-code', 'alpha'), err => err.conflict?.incoming?.agent === 'claude-code');
+  const renamed = adoptSkill(config, vault, 'claude-code', 'alpha', { as: 'alpha-claude' });
+  assert.equal(renamed.name, 'alpha-claude');
+  assert.match(fs.readFileSync(path.join(vault, 'skills', 'alpha-claude', 'SKILL.md'), 'utf8'), /^name: alpha-claude$/m);
+  fs.rmSync(path.join(vault, 'skills', 'alpha-claude'), { recursive: true });
+  adoptSkill(config, vault, 'claude-code', 'alpha', { replace: true });
+  fs.writeFileSync(path.join(home, '.claude', 'skills', 'alpha', 'SKILL.md'), fs.readFileSync(path.join(vault, 'skills', 'alpha', 'SKILL.md')));
 
   let s = scan(config, vault);
   // agent still has its own (identical) copy -> copied
   assert.equal(s.skills[0].agents['claude-code'].status, 'copied');
+  assert.equal(s.skills.length, 1);
   assert.equal(s.skills[0].agents['codex'].status, 'missing');
 
   const r = installSkill(config, vault, 'alpha', 'codex');

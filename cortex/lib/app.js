@@ -1,19 +1,23 @@
 // Shared application layer used by both the HTTP server and the CLI.
 // Every operation loads config fresh so edits from either side are seen.
 
-import { loadConfig, saveConfig, loadDevice, saveDevice, vaultPath, collapseHome, DEFAULT_AGENTS } from './config.js';
+import { loadConfig, saveConfig, loadDevice, saveDevice, vaultPath, collapseHome, DEFAULT_AGENTS, CONFIG_PATH } from './config.js';
 import {
   ensureVault, listSkills, listMemory, listDevices, touchDevice, readSkillFiles, writeSkillFile,
   createSkill, deleteSkill, saveMemory, deleteMemory, readMemory,
 } from './vault.js';
 import {
   scan, adoptSkill, installSkill, uninstallSkill, pullSkill, pushMemory,
-  importMemoryFromAgent, exportMemoryText, importMemoryText,
+  importMemoryFromAgent, exportMemoryText, importMemoryText, conflicts, conflictCandidates,
 } from './agents.js';
+import { markDistinct, unmarkDistinct, readDistinct, lineDiff } from './similar.js';
 import { gitStatus, gitAvailable, sync as gitSync, initGit } from './sync.js';
+import fs from 'fs';
+import path from 'path';
 
 export function context() {
   const config = loadConfig();
+  if (!fs.existsSync(CONFIG_PATH)) saveConfig(config);   // first run: persist defaults so they're editable
   const vault = ensureVault(vaultPath(config));
   const device = loadDevice();
   return { config, vault, device };
@@ -39,6 +43,7 @@ export function getState() {
       skills: scanned.skills.length,
       memory: memory.length,
       unadopted: scanned.agents.reduce((n, a) => n + a.unadopted.length, 0),
+      conflicts: conflicts(config, vault).length,
       agentsDetected: scanned.agents.filter(a => a.detected).length,
     },
   };
@@ -51,7 +56,22 @@ export const ops = {
   createSkill: ({ name, description, body }) => { const { vault } = context(); return createSkill(vault, name, description, body); },
   writeSkillFile: ({ name, path: rel, content }) => { const { vault } = context(); writeSkillFile(vault, name, rel, content); return { ok: true }; },
   deleteSkill: ({ name }) => { const { vault } = context(); deleteSkill(vault, name); return { ok: true }; },
-  adopt: ({ agent, name, bundle }) => { const { config, vault } = context(); return adoptSkill(config, vault, agent, name, { bundle }); },
+  adopt: ({ agent, name, bundle, replace, as }) => { const { config, vault } = context(); return adoptSkill(config, vault, agent, name, { bundle, replace, as }); },
+  conflicts: ({ threshold, agentsOnly } = {}) => {
+    const { config, vault } = context();
+    return { pairs: conflicts(config, vault, { threshold: threshold ? Number(threshold) : undefined, agentsOnly: !!agentsOnly }), distinct: readDistinct(vault) };
+  },
+  compare: ({ a, b }) => {
+    const { config, vault } = context();
+    const cands = conflictCandidates(config, vault);
+    const A = cands.find(c => c.key === a), B = cands.find(c => c.key === b);
+    if (!A || !B) throw new Error('unknown skill key');
+    const read = c => { try { return fs.readFileSync(path.join(c.path, 'SKILL.md'), 'utf8'); } catch { return ''; } };
+    const ta = read(A), tb = read(B);
+    return { a: { ...A, body: undefined, text: ta }, b: { ...B, body: undefined, text: tb }, diff: lineDiff(ta, tb) };
+  },
+  markDistinct: ({ a, b, note }) => { const { vault } = context(); return markDistinct(vault, a, b, note); },
+  unmarkDistinct: ({ a, b }) => { const { vault } = context(); return unmarkDistinct(vault, a, b); },
   install: ({ name, agent, mode }) => {
     const { config, vault } = context();
     const targets = agent === 'all' ? config.agents.filter(a => a.kind === 'fs' && a.enabled && a.skillsDir).map(a => a.id) : [agent];

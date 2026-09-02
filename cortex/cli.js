@@ -4,7 +4,10 @@
 //   cortex status                      overview of vault, device, agents
 //   cortex skills                      skill x agent matrix
 //   cortex skill <name>                print a skill's SKILL.md
-//   cortex adopt <agent> <name>        copy a skill from an agent into the vault
+//   cortex adopt <agent> <name> [--bundle p] [--replace] [--as new-name]
+//   cortex conflicts [--threshold 0.3] identical / same-name / similar skills across vault + agents
+//   cortex compare <keyA> <keyB>       side-by-side diff of two skills (keys from `conflicts`)
+//   cortex distinct <keyA> <keyB>      mark a pair as intentionally different
 //   cortex install <name> [agent|all]  link/copy a vault skill into agent(s)
 //   cortex uninstall <name> <agent>
 //   cortex memory                      list memory items
@@ -76,7 +79,32 @@ async function main() {
       if (!files) throw new Error(`no skill "${rest[0]}"`);
       return out(files, f => console.log(f.find(x => x.path === 'SKILL.md')?.content || ''));
     }
-    case 'adopt': return out(ops.adopt({ agent: rest[0], name: rest[1], bundle: flag('bundle') }), r => console.log(`adopted ${r.name} into vault`));
+    case 'adopt': {
+      try {
+        return out(ops.adopt({ agent: rest[0], name: rest[1], bundle: flag('bundle'), replace: args.includes('--replace'), as: flag('as') }), r => console.log(r.adopted ? `adopted ${r.name} into vault` : `skipped: ${r.reason}`));
+      } catch (err) {
+        if (!err.conflict) throw err;
+        if (json) { console.log(JSON.stringify({ error: err.message, conflict: err.conflict }, null, 2)); process.exit(2); }
+        console.error(`conflict: ${err.message}\n  vault:    ${err.conflict.vault?.files} files, updated ${err.conflict.vault?.updated}\n  incoming: ${err.conflict.incoming?.files} files, updated ${err.conflict.incoming?.updated}\n  -> cortex adopt ${rest[0]} ${rest[1]} --replace   (agent wins)\n  -> cortex adopt ${rest[0]} ${rest[1]} --as ${rest[1]}-${rest[0]}   (keep both)\n  -> cortex compare vault/${rest[1]} ${rest[0]}/${flag('bundle') ? flag('bundle') + '/' : ''}${rest[1]}`);
+        process.exit(2);
+      }
+    }
+    case 'conflicts': {
+      const r = ops.conflicts({ threshold: flag('threshold'), agentsOnly: args.includes('--agents-only') });
+      return out(r, r => {
+        if (!r.pairs.length) return console.log('no conflicts found');
+        for (const p of r.pairs) console.log(`${p.kind.padEnd(10)} ${String(p.score).padEnd(5)} ${p.a.key}  <->  ${p.b.key}`);
+        console.log(`\n${r.pairs.length} pair(s). Resolve with: cortex compare <a> <b> | cortex adopt ... --replace/--as | cortex distinct <a> <b>`);
+      });
+    }
+    case 'compare': {
+      const r = ops.compare({ a: rest[0], b: rest[1] });
+      return out(r, r => {
+        console.log(`--- ${r.a.key} (${r.a.files} files, ${r.a.updated})\n+++ ${r.b.key} (${r.b.files} files, ${r.b.updated})`);
+        for (const l of r.diff) console.log(l.t === ' ' ? `  ${l.a}` : l.t === '-' ? `- ${l.a}` : `+ ${l.b}`);
+      });
+    }
+    case 'distinct': return out(ops.markDistinct({ a: rest[0], b: rest[1], note: flag('note') }), () => console.log(`marked distinct: ${rest[0]} / ${rest[1]}`));
     case 'install': return out(ops.install({ name: rest[0], agent: rest[1] || 'all', mode: flag('mode') }), r => r.forEach(x => console.log(`${x.agent}: ${x.status} -> ${x.target}${x.note ? ` (${x.note})` : ''}`)));
     case 'uninstall': return out(ops.uninstall({ name: rest[0], agent: rest[1] }), r => console.log(`removed ${r.target}`));
     case 'sync': return out(ops.sync(), r => r.log.forEach(l => console.log(l)));
@@ -111,7 +139,7 @@ async function main() {
       }
     }
     case 'help': case '--help': case '-h':
-      return console.log((await import('fs')).readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 22).map(l => l.replace(/^\/\/ ?/, '')).join('\n'));
+      return console.log((await import('fs')).readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 26).map(l => l.replace(/^\/\/ ?/, '')).join('\n'));
     default: throw new Error(`unknown command "${cmd}" (try: cortex help)`);
   }
 }

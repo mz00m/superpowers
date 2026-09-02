@@ -91,3 +91,13 @@ test('touchDevice registers and updates devices.json', () => {
   assert.equal(devices.length, 2);
   assert.equal(devices.find(d => d.id === 'a').name, 'laptop-renamed');
 });
+
+test('folder name is canonical; frontmatter name surfaces as title', () => {
+  const home = tempHome();
+  const v = ensureVault(path.join(home, 'vault'));
+  fs.mkdirSync(path.join(v, 'skills', 'session-start-hook'));
+  fs.writeFileSync(path.join(v, 'skills', 'session-start-hook', 'SKILL.md'), '---\nname: startup-hook-skill\ndescription: d\n---\n');
+  const [s] = listSkills(v);
+  assert.equal(s.name, 'session-start-hook');
+  assert.equal(s.title, 'startup-hook-skill');
+});

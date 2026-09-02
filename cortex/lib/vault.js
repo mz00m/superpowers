@@ -104,10 +104,12 @@ export function readSkillMeta(skillDir) {
   if (!fs.existsSync(file)) return null;
   const text = fs.readFileSync(file, 'utf8');
   const { data, body } = parseFrontmatter(text);
-  const name = data.name || path.basename(skillDir);
+  // Folder name is canonical (it's what agents resolve); frontmatter name is informational.
+  const name = path.basename(skillDir);
   const firstPara = body.split(/\n\s*\n/).map(s => s.trim()).find(s => s && !s.startsWith('#')) || '';
   return {
     name,
+    title: data.name && data.name !== name ? data.name : undefined,
     description: data.description || firstPara.slice(0, 200),
     tags: Array.isArray(data.tags) ? data.tags : [],
     path: skillDir,

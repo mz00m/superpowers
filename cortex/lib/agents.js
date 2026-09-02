@@ -66,34 +66,44 @@ export function skillStatus(vaultDir, agent, skill) {
   return { status: 'missing', target };
 }
 
-// Skills present in an agent dir that the vault doesn't know about.
-export function unadoptedSkills(vaultDir, agent, vaultSkills) {
+// Skills present in an agent dir that the vault doesn't know about. Walks
+// container folders (a linked plugin repo, ~/.claude/skills/synced/<id>/...)
+// up to `depth` levels so nested skills are found; `bundle` records the
+// relative container path so adopt can find them again.
+export const SCAN_DEPTH = 3;
+
+export function unadoptedSkills(vaultDir, agent, vaultSkills, { includeKnown = false } = {}) {
   const dir = agentSkillsDir(agent);
   if (!dir || !fs.existsSync(dir)) return [];
   const known = new Set(vaultSkills.map(s => s.name));
   const vaultReal = realpathSafe(skillsDir(vaultDir)) || '';
   const out = [];
-  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (e.name.startsWith('.')) continue;
-    const full = path.join(dir, e.name);
-    const real = realpathSafe(full);
-    if (!real || !fs.statSync(real).isDirectory()) continue;
-    if (real.startsWith(vaultReal + path.sep)) continue;      // already linked from vault
-    if (known.has(e.name)) continue;                          // vault has same name (status shown in matrix)
-    const meta = readSkillMeta(real);
-    if (meta) {
-      out.push({ ...meta, agent: agent.id, name: e.name, isLink: e.isSymbolicLink() });
-      continue;
+  const walk = (base, rel, depth) => {
+    let entries = [];
+    try { entries = fs.readdirSync(base, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      if (e.name.startsWith('.') || SKIP.has(e.name)) continue;
+      const full = path.join(base, e.name);
+      const real = realpathSafe(full);
+      if (!real) continue;
+      let st; try { st = fs.statSync(real); } catch { continue; }
+      if (!st.isDirectory()) continue;
+      if (real.startsWith(vaultReal + path.sep)) continue;      // linked from vault already
+      const meta = readSkillMeta(real);
+      if (meta) {
+        if (!known.has(e.name) || includeKnown) {
+          out.push({ ...meta, agent: agent.id, name: e.name, bundle: rel || undefined, isLink: e.isSymbolicLink() || rel !== '', realPath: real });
+        }
+        continue;
+      }
+      if (depth < SCAN_DEPTH) walk(real, rel ? `${rel}/${e.name}` : e.name, depth + 1);
     }
-    // A linked bundle (e.g. ~/.agents/skills/superpowers -> repo/skills) contains nested skills.
-    for (const sub of fs.readdirSync(real, { withFileTypes: true })) {
-      if (!sub.isDirectory()) continue;
-      const sm = readSkillMeta(path.join(real, sub.name));
-      if (sm && !known.has(sub.name)) out.push({ ...sm, agent: agent.id, name: sub.name, bundle: e.name, isLink: true });
-    }
-  }
+  };
+  walk(dir, '', 0);
   return out;
 }
+
+const SKIP = new Set(['node_modules', '.git']);
 
 export function scan(config, vaultDir) {
   const skills = listSkills(vaultDir);
@@ -114,10 +124,21 @@ export function scan(config, vaultDir) {
       unadopted: a.kind === 'fs' && a.enabled ? unadoptedSkills(vaultDir, a, skills) : [],
     };
   });
+  // Skills the agent has somewhere other than <skillsDir>/<name> (e.g. nested
+  // under a synced/<id>/ folder) still count as copied/diverged, flagged nested.
+  const nestedByAgent = Object.fromEntries(agents.filter(a => a.kind === 'fs' && a.enabled && a.skillsDir).map(a => {
+    const all = unadoptedSkills(vaultDir, a, skills, { includeKnown: true }).filter(u => u.bundle);
+    return [a.id, new Map(all.map(u => [u.name, u]))];
+  }));
   const matrix = skills.map(s => ({
     ...s,
     agents: Object.fromEntries(
-      fsAgents(config).filter(a => a.enabled).map(a => [a.id, skillStatus(vaultDir, a, s)])
+      fsAgents(config).filter(a => a.enabled).map(a => {
+        let st = skillStatus(vaultDir, a, s);
+        const nested = st.status === 'missing' && nestedByAgent[a.id]?.get(s.name);
+        if (nested) st = { status: nested.hash === s.hash ? 'copied' : 'diverged', target: nested.realPath, nested: nested.bundle };
+        return [a.id, st];
+      })
     ),
   }));
   return { skills: matrix, agents };
@@ -125,16 +146,34 @@ export function scan(config, vaultDir) {
 
 // ---------- adopt / install / uninstall ----------
 
-export function adoptSkill(config, vaultDir, agentId, name, { bundle } = {}) {
+export function adoptSkill(config, vaultDir, agentId, name, { bundle, replace = false, as } = {}) {
   const agent = config.agents.find(a => a.id === agentId);
   if (!agent) throw new Error(`unknown agent ${agentId}`);
   const dir = agentSkillsDir(agent);
-  const src = realpathSafe(bundle ? path.join(dir, bundle, name) : path.join(dir, safeName(name)));
+  const src = realpathSafe(bundle ? path.join(dir, ...bundle.split('/'), safeName(name)) : path.join(dir, safeName(name)));
   if (!src || !fs.existsSync(path.join(src, 'SKILL.md'))) throw new Error(`no skill "${name}" in ${agent.name}`);
-  const dest = path.join(skillsDir(vaultDir), name);
-  if (fs.existsSync(dest)) throw new Error(`vault already has "${name}"`);
+  const targetName = as ? safeName(as) : name;
+  const dest = path.join(skillsDir(vaultDir), targetName);
+  if (fs.existsSync(dest)) {
+    const existing = readSkillMeta(dest);
+    const incoming = readSkillMeta(src);
+    if (existing && incoming && existing.hash === incoming.hash) {
+      return { ...existing, adopted: false, reason: 'identical copy already in vault' };
+    }
+    if (!replace) {
+      const err = new Error(`vault already has "${targetName}" with different content; adopt with replace, or under a new name`);
+      err.conflict = { name: targetName, vault: existing, incoming: { ...incoming, agent: agentId, bundle } };
+      throw err;
+    }
+    fs.rmSync(dest, { recursive: true, force: true });
+  }
   copyTree(src, dest);
-  return readSkillMeta(dest);
+  if (as) {
+    // keep the frontmatter name in step with the folder name
+    const file = path.join(dest, 'SKILL.md');
+    fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(/^(---\r?\n(?:[\s\S]*?))name:\s*.*$/m, `$1name: ${targetName}`));
+  }
+  return { ...readSkillMeta(dest), adopted: true };
 }
 
 export function installSkill(config, vaultDir, name, agentId, mode = config.linkMode) {
@@ -315,4 +354,40 @@ export function importMemoryText(vaultDir, text, { source = 'chatgpt', agents = 
     created.push(item);
   }
   return { created, skipped };
+}
+
+// ---------- deconfliction ----------
+
+import { findConflicts, readDistinct } from './similar.js';
+
+function skillBody(dir) {
+  try { return parseFrontmatter(fs.readFileSync(path.join(dir, 'SKILL.md'), 'utf8')).body; } catch { return ''; }
+}
+
+export function conflictCandidates(config, vaultDir, { agentsOnly = false } = {}) {
+  const vaultSkills = listSkills(vaultDir);
+  const out = agentsOnly ? [] : vaultSkills.map(s => ({
+    key: `vault/${s.name}`, where: 'vault', name: s.name, description: s.description, hash: s.hash,
+    path: s.path, files: s.files, updated: s.updated, body: skillBody(s.path),
+  }));
+  for (const agent of config.agents.filter(a => a.kind === 'fs' && a.enabled && a.skillsDir)) {
+    for (const u of unadoptedSkills(vaultDir, agent, vaultSkills, { includeKnown: true })) {
+      out.push({
+        key: `${agent.id}/${u.bundle ? u.bundle + '/' : ''}${u.name}`, where: agent.id, agent: agent.id, bundle: u.bundle,
+        name: u.name, description: u.description, hash: u.hash, path: u.realPath, files: u.files, updated: u.updated,
+        body: skillBody(u.realPath),
+      });
+    }
+  }
+  return out;
+}
+
+export function conflicts(config, vaultDir, opts = {}) {
+  const all = conflictCandidates(config, vaultDir, opts);
+  // An identical, same-named copy of a vault skill sitting in an agent is not
+  // a conflict, it's the "copied" cell in the matrix; drop those so each
+  // vault skill is represented once instead of once per agent copy.
+  const vaultCopies = new Set(all.filter(c => c.where === 'vault').map(c => `${c.name}|${c.hash}`));
+  const candidates = all.filter(c => c.where === 'vault' || !vaultCopies.has(`${c.name}|${c.hash}`));
+  return findConflicts(candidates, { threshold: opts.threshold, distinct: readDistinct(vaultDir) });
 }
