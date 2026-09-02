@@ -131,13 +131,12 @@ export function scan(config, vaultDir, { device } = {}) {
   });
   // Skills the agent has somewhere other than <skillsDir>/<name> (e.g. nested
   // under a synced/<id>/ folder) still count as copied/diverged, flagged nested.
-  const nestedByAgent = Object.fromEntries(agents.filter(a => a.kind === 'fs' && a.enabled && a.skillsDir).map(a => {
-    const all = unadoptedSkills(vaultDir, a, skills, { includeKnown: true }).filter(u => u.bundle);
-    return [a.id, new Map(all.map(u => [u.name, u]))];
-  }));
+  // Everything each agent has, including names the vault already knows.
+  const allByAgent = agents.filter(a => a.kind === 'fs' && a.enabled && a.skillsDir).map(a => [a, unadoptedSkills(vaultDir, a, skills, { includeKnown: true })]);
+  const nestedByAgent = Object.fromEntries(allByAgent.map(([a, all]) => [a.id, new Map(all.filter(u => u.bundle).map(u => [u.name, u]))]));
   // A vault skill that is byte-identical to something shipped in a built-in
   // location is built-in too, whatever folder it was adopted from.
-  const builtinHashes = new Set(agents.flatMap(a => a.unadopted).filter(u => u.origin === 'builtin').map(u => u.hash));
+  const builtinHashes = new Set(allByAgent.flatMap(([, all]) => all).filter(u => u.origin === 'builtin').map(u => u.hash));
   const matrix = skills.map(s => ({
     ...s,
     origin: !s.originOverridden && s.origin === 'personal' && builtinHashes.has(s.hash) ? 'builtin' : s.origin,
