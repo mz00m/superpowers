@@ -17,14 +17,12 @@ There's a bunch more to it, but that's the core of the system. And because the s
 
 ## Cortex: skills + memory across devices and agents
 
-This fork adds **Cortex** (`cortex/`), a zero-dependency local app that keeps one vault of skills and memory and links every agent on every device to it (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, ChatGPT via paste/export, and your own agent). Choose local, synced-folder, or git storage.
+This fork adds one skill, `managing-skills-and-memory`, that teaches your agent to drive **[Cortex](https://github.com/mz00m/cortex)** — a zero-dependency local app that keeps one vault of skills and memory and links every agent on every device to it (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, ChatGPT via paste/export, and your own agent), with local, synced-folder, or git storage and deconfliction of duplicate skills.
 
 ```bash
-node cortex/cli.js serve   # web UI at http://localhost:4747
-node cortex/cli.js status  # CLI
+git clone https://github.com/mz00m/cortex && cd cortex && npm link
+cortex serve   # web UI at http://localhost:4747
 ```
-
-See [cortex/README.md](cortex/README.md) and the `managing-skills-and-memory` skill.
 
 ## Sponsorship
 

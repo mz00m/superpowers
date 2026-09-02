@@ -5,7 +5,7 @@ description: Use when the user wants to see, organize, share, or sync their skil
 
 # Managing Skills and Memory with Cortex
 
-Cortex (`cortex/` in this repo) keeps one **vault** of skills and memory and
+Cortex (https://github.com/mz00m/cortex) keeps one **vault** of skills and memory and
 links every agent on every device to it. Use it instead of hand-copying
 SKILL.md folders or pasting the same preferences into CLAUDE.md, AGENTS.md and
 GEMINI.md.
@@ -20,7 +20,7 @@ GEMINI.md.
 
 ## Commands
 
-Run from the repo root (`node cortex/cli.js …`, or `cortex …` after `npm link`).
+Run `cortex …` (install with `npm install -g @mz00m/cortex` or `npm link` from a checkout).
 Add `--json` when you need to parse the result.
 
 | Goal | Command |
@@ -53,4 +53,4 @@ Agent ids: `claude-code`, `codex`, `opencode`, `cursor`, `gemini`, `chatgpt`, `i
 
 - Vault: `~/.cortex/vault` by default (`skills/`, `memory/`, `devices.json`)
 - Per-device config: `~/.cortex/config.json` (vault path, storage mode, link mode, agent paths)
-- Tests: `cd tests/cortex && node --test`
+- Tests: `npm test` in the cortex checkout
