@@ -8,6 +8,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { readManifest, classifyOrigin, removeProvenance } from './provenance.js';
 
 export const SKIP_DIRS = new Set(['.git', 'node_modules', '.DS_Store']);
 
@@ -117,6 +118,7 @@ export function readSkillMeta(skillDir) {
     name,
     title: data.name && data.name !== name ? data.name : undefined,
     description: data.description || firstPara.slice(0, 200),
+    license: data.license || undefined,
     tags: Array.isArray(data.tags) ? data.tags : [],
     path: skillDir,
     files: countFiles(skillDir),
@@ -140,10 +142,22 @@ function countFiles(dir) {
 export function listSkills(vaultDir) {
   const dir = skillsDir(vaultDir);
   if (!fs.existsSync(dir)) return [];
+  const manifest = readManifest(vaultDir).skills;
   return fs.readdirSync(dir, { withFileTypes: true })
     .filter(e => e.isDirectory() || e.isSymbolicLink())
     .map(e => readSkillMeta(path.join(dir, e.name)))
     .filter(Boolean)
+    .map(m => {
+      const p = manifest[m.name] || {};
+      return {
+        ...m,
+        origin: p.origin || classifyOrigin({ realPath: m.path, license: m.license, insideVault: true }),
+        originOverridden: !!p.originOverridden,
+        source: p.source || null,
+        adopted: p.adopted || null,
+        seen: p.seen || {},
+      };
+    })
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -187,6 +201,7 @@ export function createSkill(vaultDir, name, description, body = '') {
 export function deleteSkill(vaultDir, name) {
   const dir = path.join(skillsDir(vaultDir), safeName(name));
   fs.rmSync(dir, { recursive: true, force: true });
+  removeProvenance(vaultDir, name);
 }
 
 export function safeName(name) {
@@ -235,6 +250,8 @@ export function readMemory(vaultDir, id) {
     scope: data.scope || 'global',
     agents: Array.isArray(data.agents) ? data.agents : ['all'],
     source: data.source || '',
+    agent: data.agent || '',
+    device: data.device || '',
     created: data.created || '',
     updated: data.updated || fs.statSync(file).mtime.toISOString(),
     body: body.trim(),
@@ -258,6 +275,8 @@ export function saveMemory(vaultDir, item) {
     scope: item.scope || existing?.scope || 'global',
     agents: item.agents?.length ? item.agents : (existing?.agents || ['all']),
     source: item.source ?? existing?.source ?? '',
+    agent: item.agent ?? existing?.agent ?? '',
+    device: item.device ?? existing?.device ?? '',
     created: existing?.created || now,
     updated: now,
   };

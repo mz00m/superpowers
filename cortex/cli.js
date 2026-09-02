@@ -2,7 +2,8 @@
 // Cortex CLI. Same operations as the web UI, for scripts and agents.
 //   cortex serve                       start the web UI (http://localhost:4747)
 //   cortex status                      overview of vault, device, agents
-//   cortex skills                      skill x agent matrix
+//   cortex skills [--personal|--builtin|--plugin]   skill x agent matrix with origin
+//   cortex origin <name> personal|builtin|plugin    override a skill's origin
 //   cortex skill <name>                print a skill's SKILL.md
 //   cortex adopt <agent> <name> [--bundle p] [--replace] [--as new-name]
 //   cortex conflicts [--threshold 0.3] identical / same-name / similar skills across vault + agents
@@ -66,19 +67,30 @@ async function main() {
     }
     case 'skills': {
       const s = getState();
-      return out(s.skills, skills => {
+      const want = ['personal', 'builtin', 'plugin'].find(o => args.includes(`--${o}`));
+      const skills = want ? s.skills.filter(x => x.origin === want) : s.skills;
+      return out(skills, skills => {
         const agents = s.agents.filter(a => a.kind === 'fs' && a.enabled && a.skillsDir);
-        console.log('skill'.padEnd(34) + agents.map(a => a.id.padEnd(13)).join(''));
-        for (const sk of skills) console.log(sk.name.padEnd(34) + agents.map(a => (STATUS_ICON[sk.agents[a.id]?.status] || '?').padEnd(13)).join(''));
-        const un = s.agents.flatMap(a => a.unadopted.map(u => `${a.id}/${u.name}`));
+        console.log('skill'.padEnd(30) + 'origin'.padEnd(10) + 'from'.padEnd(24) + agents.map(a => a.id.padEnd(13)).join(''));
+        for (const sk of skills) console.log(sk.name.padEnd(30) + sk.origin.padEnd(10) + (sk.source ? `${sk.source.agent}@${sk.source.device}` : '').slice(0, 23).padEnd(24) + agents.map(a => (STATUS_ICON[sk.agents[a.id]?.status] || '?').padEnd(13)).join(''));
+        const un = s.agents.flatMap(a => a.unadopted.filter(u => !want || u.origin === want).map(u => `${a.id}/${u.name} (${u.origin})`));
         if (un.length) console.log(`\nNot in vault yet (cortex adopt <agent> <name>): ${un.join(', ')}`);
+        const other = Object.values(s.devices || []).filter(d => d.id !== s.device.id);
+        if (other.length) console.log(`\nOther devices in this vault: ${other.map(d => d.name).join(', ')} — see 'cortex skill <name>' for where each skill is.`);
       });
     }
     case 'skill': {
       const files = ops.skill(rest[0]);
       if (!files) throw new Error(`no skill "${rest[0]}"`);
-      return out(files, f => console.log(f.find(x => x.path === 'SKILL.md')?.content || ''));
+      const meta = ops.listSkills().find(x => x.name === rest[0]);
+      return out({ meta, files }, ({ meta, files }) => {
+        console.log(`# ${meta.name}  [${meta.origin}${meta.originOverridden ? ', set by you' : ''}]`);
+        if (meta.source) console.log(`from: ${meta.source.agent} on ${meta.source.device} (${meta.source.path})${meta.adopted ? ` adopted ${meta.adopted.slice(0, 10)}` : ''}`);
+        for (const [id, sn] of Object.entries(meta.seen || {})) console.log(`seen on ${sn.device}: ${sn.agents.join(', ') || '(vault only)'}  ${sn.at.slice(0, 10)}`);
+        console.log(''); console.log(files.find(x => x.path === 'SKILL.md')?.content || '');
+      });
     }
+    case 'origin': return out(ops.setOrigin({ name: rest[0], origin: rest[1] }), () => console.log(`${rest[0]} is now ${rest[1]}`));
     case 'adopt': {
       try {
         return out(ops.adopt({ agent: rest[0], name: rest[1], bundle: flag('bundle'), replace: args.includes('--replace'), as: flag('as') }), r => console.log(r.adopted ? `adopted ${r.name} into vault` : `skipped: ${r.reason}`));
@@ -126,7 +138,7 @@ async function main() {
       const [sub, ...m] = rest;
       switch (sub) {
         case undefined:
-        case 'ls': return out(ops.listMemory(), items => items.forEach(i => console.log(`${i.id.padEnd(40)} ${i.scope.padEnd(10)} [${i.tags.join(', ')}] ${i.title}`)));
+        case 'ls': return out(ops.listMemory(), items => items.forEach(i => console.log(`${i.id.padEnd(36)} ${i.scope.padEnd(10)} ${(i.agent ? `${i.agent}@${i.device}` : '').padEnd(24)} [${i.tags.join(', ')}] ${i.title}`)));
         case 'add': return out(ops.saveMemory({ title: m[0], body: flag('body') || m[0], tags: flag('tags')?.split(',') || [], agents: flag('agents')?.split(',') || ['all'], scope: flag('scope') }), i => console.log(`saved ${i.id}`));
         case 'rm': return out(ops.deleteMemory({ id: m[0] }), () => console.log(`deleted ${m[0]}`));
         case 'push': return out(ops.pushMemory({ agent: m[0] || 'all' }), r => r.forEach(x => console.log(`${x.agent}: wrote ${x.count} item(s) to ${x.written.join(', ')}`)));
@@ -139,7 +151,7 @@ async function main() {
       }
     }
     case 'help': case '--help': case '-h':
-      return console.log((await import('fs')).readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 26).map(l => l.replace(/^\/\/ ?/, '')).join('\n'));
+      return console.log((await import('fs')).readFileSync(fileURLToPath(import.meta.url), 'utf8').split('\n').slice(1, 28).map(l => l.replace(/^\/\/ ?/, '')).join('\n'));
     default: throw new Error(`unknown command "${cmd}" (try: cortex help)`);
   }
 }

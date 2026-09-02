@@ -5,6 +5,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { expandHome } from './config.js';
+import { classifyOrigin, setProvenance, recordSeen, renameProvenance } from './provenance.js';
 import {
   hashTree, hashText, readSkillMeta, copyTree, safeName, skillsDir, listSkills,
   listMemory, memoryForAgent, saveMemory, readImports, recordImport, parseFrontmatter,
@@ -92,7 +93,11 @@ export function unadoptedSkills(vaultDir, agent, vaultSkills, { includeKnown = f
       const meta = readSkillMeta(real);
       if (meta) {
         if (!known.has(e.name) || includeKnown) {
-          out.push({ ...meta, agent: agent.id, name: e.name, bundle: rel || undefined, isLink: e.isSymbolicLink() || rel !== '', realPath: real });
+          const bundle = rel || undefined;
+          out.push({
+            ...meta, agent: agent.id, name: e.name, bundle, isLink: e.isSymbolicLink() || rel !== '', realPath: real,
+            origin: classifyOrigin({ realPath: real, bundle, license: meta.license, agentSkillsDir: realpathSafe(dir) || dir }),
+          });
         }
         continue;
       }
@@ -105,7 +110,7 @@ export function unadoptedSkills(vaultDir, agent, vaultSkills, { includeKnown = f
 
 const SKIP = new Set(['node_modules', '.git']);
 
-export function scan(config, vaultDir) {
+export function scan(config, vaultDir, { device } = {}) {
   const skills = listSkills(vaultDir);
   const agents = config.agents.map(a => {
     const dir = a.kind === 'fs' ? agentSkillsDir(a) : null;
@@ -130,8 +135,13 @@ export function scan(config, vaultDir) {
     const all = unadoptedSkills(vaultDir, a, skills, { includeKnown: true }).filter(u => u.bundle);
     return [a.id, new Map(all.map(u => [u.name, u]))];
   }));
+  // A vault skill that is byte-identical to something shipped in a built-in
+  // location is built-in too, whatever folder it was adopted from.
+  const builtinHashes = new Set(agents.flatMap(a => a.unadopted).filter(u => u.origin === 'builtin').map(u => u.hash));
   const matrix = skills.map(s => ({
     ...s,
+    origin: !s.originOverridden && s.origin === 'personal' && builtinHashes.has(s.hash) ? 'builtin' : s.origin,
+    originNote: !s.originOverridden && s.origin === 'personal' && builtinHashes.has(s.hash) ? 'identical to a built-in copy' : undefined,
     agents: Object.fromEntries(
       fsAgents(config).filter(a => a.enabled).map(a => {
         let st = skillStatus(vaultDir, a, s);
@@ -141,12 +151,15 @@ export function scan(config, vaultDir) {
       })
     ),
   }));
+  if (device) {
+    recordSeen(vaultDir, device, Object.fromEntries(matrix.map(s => [s.name, Object.entries(s.agents).filter(([, st]) => !['missing', 'unsupported', 'broken-link'].includes(st.status)).map(([id]) => id)])));
+  }
   return { skills: matrix, agents };
 }
 
 // ---------- adopt / install / uninstall ----------
 
-export function adoptSkill(config, vaultDir, agentId, name, { bundle, replace = false, as } = {}) {
+export function adoptSkill(config, vaultDir, agentId, name, { bundle, replace = false, as, device } = {}) {
   const agent = config.agents.find(a => a.id === agentId);
   if (!agent) throw new Error(`unknown agent ${agentId}`);
   const dir = agentSkillsDir(agent);
@@ -173,6 +186,12 @@ export function adoptSkill(config, vaultDir, agentId, name, { bundle, replace = 
     const file = path.join(dest, 'SKILL.md');
     fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace(/^(---\r?\n(?:[\s\S]*?))name:\s*.*$/m, `$1name: ${targetName}`));
   }
+  const meta = readSkillMeta(src);
+  setProvenance(vaultDir, targetName, {
+    origin: classifyOrigin({ realPath: src, bundle, license: meta?.license, agentSkillsDir: realpathSafe(dir) || dir }),
+    source: { agent: agentId, device: device?.name || os.hostname(), deviceId: device?.id, path: src, bundle: bundle || undefined, originalName: as ? name : undefined },
+    adopted: new Date().toISOString(),
+  });
   return { ...readSkillMeta(dest), adopted: true };
 }
 
@@ -311,6 +330,7 @@ export function importMemoryFromAgent(config, vaultDir, agentId, device) {
       title, body: body.trim(), scope,
       tags: ['imported', agent.id],
       source: `${agent.id}@${device?.name || os.hostname()}:${file}`,
+      agent: agent.id, device: device?.name || os.hostname(),
     });
     recordImport(vaultDir, hash, { agent: agent.id, file, id: item.id });
     created.push(item);
@@ -341,7 +361,7 @@ export function exportMemoryText(vaultDir, agentId = 'chatgpt', { limit } = {}) 
 
 // Paste from ChatGPT "Manage memories" (or any list): one item per
 // non-empty paragraph or bullet.
-export function importMemoryText(vaultDir, text, { source = 'chatgpt', agents = ['all'] } = {}) {
+export function importMemoryText(vaultDir, text, { source = 'chatgpt', agents = ['all'], device } = {}) {
   const imports = readImports(vaultDir);
   const chunks = String(text).split(/\n\s*\n|\n(?=\s*[-*•]\s)/).map(s => s.replace(/^\s*[-*•]\s*/, '').trim()).filter(Boolean);
   const created = [], skipped = [];
@@ -349,7 +369,7 @@ export function importMemoryText(vaultDir, text, { source = 'chatgpt', agents = 
     const hash = hashText(chunk);
     if (imports[hash]) { skipped.push(chunk); continue; }
     const title = chunk.split(/[.\n]/)[0].slice(0, 70);
-    const item = saveMemory(vaultDir, { title, body: chunk, tags: ['imported', source], source, agents });
+    const item = saveMemory(vaultDir, { title, body: chunk, tags: ['imported', source], source, agent: source, device: device?.name || os.hostname(), agents });
     recordImport(vaultDir, hash, { agent: source, id: item.id });
     created.push(item);
   }
@@ -367,14 +387,14 @@ function skillBody(dir) {
 export function conflictCandidates(config, vaultDir, { agentsOnly = false } = {}) {
   const vaultSkills = listSkills(vaultDir);
   const out = agentsOnly ? [] : vaultSkills.map(s => ({
-    key: `vault/${s.name}`, where: 'vault', name: s.name, description: s.description, hash: s.hash,
+    key: `vault/${s.name}`, where: 'vault', name: s.name, description: s.description, hash: s.hash, origin: s.origin, source: s.source,
     path: s.path, files: s.files, updated: s.updated, body: skillBody(s.path),
   }));
   for (const agent of config.agents.filter(a => a.kind === 'fs' && a.enabled && a.skillsDir)) {
     for (const u of unadoptedSkills(vaultDir, agent, vaultSkills, { includeKnown: true })) {
       out.push({
         key: `${agent.id}/${u.bundle ? u.bundle + '/' : ''}${u.name}`, where: agent.id, agent: agent.id, bundle: u.bundle,
-        name: u.name, description: u.description, hash: u.hash, path: u.realPath, files: u.files, updated: u.updated,
+        name: u.name, description: u.description, hash: u.hash, path: u.realPath, files: u.files, updated: u.updated, origin: u.origin,
         body: skillBody(u.realPath),
       });
     }

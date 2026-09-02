@@ -11,6 +11,7 @@ import {
   importMemoryFromAgent, exportMemoryText, importMemoryText, conflicts, conflictCandidates,
 } from './agents.js';
 import { markDistinct, unmarkDistinct, readDistinct, lineDiff } from './similar.js';
+import { setProvenance, ORIGINS } from './provenance.js';
 import { gitStatus, gitAvailable, sync as gitSync, initGit } from './sync.js';
 import fs from 'fs';
 import path from 'path';
@@ -25,7 +26,7 @@ export function context() {
 
 export function getState() {
   const { config, vault, device } = context();
-  const scanned = scan(config, vault);
+  const scanned = scan(config, vault, { device });
   const memory = listMemory(vault);
   const devices = touchDevice(vault, device, {
     agents: scanned.agents.filter(a => a.detected).map(a => a.id),
@@ -44,6 +45,7 @@ export function getState() {
       memory: memory.length,
       unadopted: scanned.agents.reduce((n, a) => n + a.unadopted.length, 0),
       conflicts: conflicts(config, vault).length,
+      byOrigin: scanned.skills.reduce((o, s) => (o[s.origin] = (o[s.origin] || 0) + 1, o), {}),
       agentsDetected: scanned.agents.filter(a => a.detected).length,
     },
   };
@@ -56,7 +58,12 @@ export const ops = {
   createSkill: ({ name, description, body }) => { const { vault } = context(); return createSkill(vault, name, description, body); },
   writeSkillFile: ({ name, path: rel, content }) => { const { vault } = context(); writeSkillFile(vault, name, rel, content); return { ok: true }; },
   deleteSkill: ({ name }) => { const { vault } = context(); deleteSkill(vault, name); return { ok: true }; },
-  adopt: ({ agent, name, bundle, replace, as }) => { const { config, vault } = context(); return adoptSkill(config, vault, agent, name, { bundle, replace, as }); },
+  adopt: ({ agent, name, bundle, replace, as }) => { const { config, vault, device } = context(); return adoptSkill(config, vault, agent, name, { bundle, replace, as, device }); },
+  setOrigin: ({ name, origin }) => {
+    const { vault } = context();
+    if (!ORIGINS.includes(origin)) throw new Error(`origin must be one of ${ORIGINS.join(', ')}`);
+    return setProvenance(vault, name, { origin, originOverridden: true });
+  },
   conflicts: ({ threshold, agentsOnly } = {}) => {
     const { config, vault } = context();
     return { pairs: conflicts(config, vault, { threshold: threshold ? Number(threshold) : undefined, agentsOnly: !!agentsOnly }), distinct: readDistinct(vault) };
@@ -81,7 +88,7 @@ export const ops = {
   pull: ({ name, agent }) => { const { config, vault } = context(); return pullSkill(config, vault, name, agent); },
 
   memory: (id) => { const { vault } = context(); return readMemory(vault, id); },
-  saveMemory: (item) => { const { vault } = context(); return saveMemory(vault, item); },
+  saveMemory: (item) => { const { vault, device } = context(); return saveMemory(vault, { ...item, device: item.device || (item.id ? undefined : device.name), agent: item.agent || (item.id ? undefined : 'cortex') }); },
   deleteMemory: ({ id }) => { const { vault } = context(); deleteMemory(vault, id); return { ok: true }; },
   pushMemory: ({ agent }) => {
     const { config, vault, device } = context();
@@ -90,7 +97,7 @@ export const ops = {
   },
   importMemory: ({ agent, text, source, agents }) => {
     const { config, vault, device } = context();
-    if (text != null) return importMemoryText(vault, text, { source: source || agent || 'paste', agents });
+    if (text != null) return importMemoryText(vault, text, { source: source || agent || 'paste', agents, device });
     return importMemoryFromAgent(config, vault, agent, device);
   },
   exportMemory: ({ agent = 'chatgpt', limit } = {}) => { const { vault } = context(); return exportMemoryText(vault, agent, { limit: limit ? Number(limit) : undefined }); },

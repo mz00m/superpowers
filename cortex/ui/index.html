@@ -46,6 +46,13 @@ p.help{color:var(--muted);margin:4px 0 14px;max-width:70ch}
 .tile .l{color:var(--muted);font-size:12px}
 .row{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
 .chip{display:inline-block;background:var(--chip);border-radius:999px;padding:2px 9px;font-size:12px;color:var(--ink);margin:1px 2px 1px 0}
+.og{display:inline-block;border-radius:5px;padding:1px 6px;font-size:11px;font-weight:600;letter-spacing:.2px;vertical-align:middle}
+.og.personal{background:color-mix(in srgb,var(--ok) 15%,transparent);color:var(--ok)}
+.og.builtin{background:color-mix(in srgb,var(--muted) 18%,transparent);color:var(--muted)}
+.og.plugin{background:color-mix(in srgb,var(--accent) 15%,transparent);color:var(--accent)}
+.filt{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.filt button{all:unset;padding:6px 10px;cursor:pointer;font-size:12.5px}
+.filt button.on{background:var(--accent);color:var(--accent-ink)}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--muted);margin-right:6px;vertical-align:middle}
 .dot.on{background:var(--ok)}
 table{width:100%;border-collapse:collapse}
@@ -163,6 +170,9 @@ function render() {
   document.querySelectorAll('.menu > button').forEach(b => b.onclick = e => { e.stopPropagation(); const m = b.parentElement; document.querySelectorAll('.menu.open').forEach(x => x !== m && x.classList.remove('open')); m.classList.toggle('open'); });
 }
 document.addEventListener('click', () => document.querySelectorAll('.menu.open').forEach(m => m.classList.remove('open')));
+const OG_LABEL = { personal: 'personal', builtin: 'built-in', plugin: 'plugin' };
+const og = o => `<span class="og ${esc(o)}">${OG_LABEL[o] || esc(o)}</span>`;
+const from = src => src ? `<span style="color:var(--muted);font-size:12px">${esc(src.agent)} @ ${esc(src.device)}</span>` : '';
 const fsAgents = () => S.agents.filter(a => a.kind === 'fs' && a.enabled && a.skillsDir);
 const memAgents = () => S.agents.filter(a => a.kind === 'fs' && a.enabled && a.memoryFiles?.length);
 
@@ -175,7 +185,7 @@ function overview() {
   const git = S.storage.git;
   return `
   <div class="grid tiles">
-    <div class="card tile"><div class="l">Skills in vault</div><div class="v">${S.counts.skills}</div></div>
+    <div class="card tile"><div class="l">Skills in vault</div><div class="v">${S.counts.skills}</div><div style="margin-top:4px">${['personal', 'builtin', 'plugin'].filter(o => S.counts.byOrigin?.[o]).map(o => `${og(o)} ${S.counts.byOrigin[o]} `).join('')}</div></div>
     <div class="card tile"><div class="l">Memory items</div><div class="v">${S.counts.memory}</div></div>
     <div class="card tile"><div class="l">Agents detected here</div><div class="v">${S.counts.agentsDetected}<span style="font-size:14px;color:var(--muted)"> / ${S.agents.length}</span></div></div>
     <div class="card tile"><div class="l">Devices</div><div class="v">${S.devices.length}</div></div>
@@ -216,19 +226,23 @@ const STATUS_LABEL = { linked: '🔗 linked', copied: '📋 copied', diverged: '
 function skills() {
   const cols = fsAgents();
   const q = ui.skillQ.toLowerCase();
-  const rows = S.skills.filter(s => !q || s.name.includes(q) || (s.description || '').toLowerCase().includes(q));
-  const un = S.agents.filter(a => a.unadopted.length);
+  const f = ui.origin || 'all';
+  const rows = S.skills.filter(s => (f === 'all' || s.origin === f) && (!q || s.name.includes(q) || (s.description || '').toLowerCase().includes(q)));
+  const un = S.agents.map(a => ({ ...a, unadopted: a.unadopted.filter(u => f === 'all' || u.origin === f) })).filter(a => a.unadopted.length);
+  const by = S.counts.byOrigin || {};
   return `
   <div class="actions" style="margin-bottom:12px">
     <input placeholder="Search skills…" value="${esc(ui.skillQ)}" oninput="ui.skillQ=this.value;render();this.focus();this.setSelectionRange(this.value.length,this.value.length)" style="max-width:280px">
     <button class="btn" onclick="newSkill()">+ New skill</button>
+    <span class="filt">${['all', 'personal', 'builtin', 'plugin'].map(o => `<button class="${f === o ? 'on' : ''}" onclick="ui.origin='${o}';render()">${o === 'all' ? `All ${S.skills.length}` : `${OG_LABEL[o]} ${by[o] || 0}`}</button>`).join('')}</span>
     <span style="color:var(--muted);font-size:12px">Click a cell to install / remove. Link mode: <b>${esc(S.config.linkMode)}</b></span>
   </div>
   <div class="card" style="padding:0;overflow:auto">
-  ${rows.length ? `<table><thead><tr><th>Skill</th>${cols.map(a => `<th>${esc(a.name)}</th>`).join('')}<th></th></tr></thead><tbody>
+  ${rows.length ? `<table><thead><tr><th>Skill</th><th>Origin · from</th>${cols.map(a => `<th>${esc(a.name)}</th>`).join('')}<th></th></tr></thead><tbody>
   ${rows.map(s => `<tr>
     <td class="name" onclick="openSkill('${esc(s.name)}')">${esc(s.name)}<span class="desc">${esc(s.description)}</span></td>
-    ${cols.map(a => { const st = s.agents[a.id]?.status || 'unsupported'; return `<td><button class="st ${st}" title="${esc(s.agents[a.id]?.target || '')}" onclick="cellClick('${esc(s.name)}','${a.id}','${st}')">${STATUS_LABEL[st]}</button></td>`; }).join('')}
+    <td style="white-space:nowrap">${og(s.origin)}<br>${from(s.source)}${elsewhere(s)}</td>
+    ${cols.map(a => { const st = s.agents[a.id]?.status || 'unsupported'; const n = s.agents[a.id]?.nested; return `<td><button class="st ${st}" title="${esc(s.agents[a.id]?.target || '')}" onclick="cellClick('${esc(s.name)}','${a.id}','${st}')">${STATUS_LABEL[st]}${n ? ' <small>nested</small>' : ''}</button></td>`; }).join('')}
     <td style="white-space:nowrap"><button class="btn sm" onclick="installSkill('${esc(s.name)}','all')">Install everywhere</button></td>
   </tr>`).join('')}
   </tbody></table>` : `<div class="empty">${S.skills.length ? 'No matches.' : 'The vault is empty. Adopt skills from your agents below, or create one.'}</div>`}
@@ -239,11 +253,15 @@ function skills() {
     const bundles = {}; for (const u of a.unadopted) (bundles[u.bundle || ''] ||= []).push(u);
     return Object.entries(bundles).map(([b, list]) => `<div class="card" style="margin-bottom:10px">
       <div class="actions" style="justify-content:space-between"><h3 style="margin:0">${esc(a.name)}${b ? ` <span class="chip">bundle: ${esc(b)}</span>` : ''} <span style="color:var(--muted);font-weight:400">· ${list.length}</span></h3>
-      <button class="btn sm" onclick='adoptMany(${JSON.stringify(list.map(u => ({ agent: a.id, name: u.name, bundle: u.bundle })))})'>Adopt all ${list.length}</button></div>
+      <span>${list.some(u => u.origin === 'personal') && list.some(u => u.origin !== 'personal') ? `<button class="btn sm" onclick='adoptMany(${JSON.stringify(list.filter(u => u.origin === 'personal').map(u => ({ agent: a.id, name: u.name, bundle: u.bundle })))})'>Adopt personal only (${list.filter(u => u.origin === 'personal').length})</button> ` : ''}<button class="btn sm" onclick='adoptMany(${JSON.stringify(list.map(u => ({ agent: a.id, name: u.name, bundle: u.bundle })))})'>Adopt all ${list.length}</button></span></div>
       ${b ? `<details><summary>Show ${list.length} skills</summary>` : ''}
-      ${list.map(u => `<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--line)"><div><b>${esc(u.name)}</b><div style="color:var(--muted);font-size:12px">${esc(u.description)}</div></div><button class="btn sm" onclick="adopt('${a.id}','${esc(u.name)}',${u.bundle ? `'${esc(u.bundle)}'` : 'null'})">Adopt</button></div>`).join('')}
+      ${list.map(u => `<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid var(--line)"><div><b>${esc(u.name)}</b> ${og(u.origin)}<div style="color:var(--muted);font-size:12px">${esc(u.description)}</div></div><button class="btn sm" onclick="adopt('${a.id}','${esc(u.name)}',${u.bundle ? `'${esc(u.bundle)}'` : 'null'})">Adopt</button></div>`).join('')}
       ${b ? '</details>' : ''}</div>`).join('');
   }).join('')}` : ''}`;
+}
+function elsewhere(s) {
+  const others = Object.entries(s.seen || {}).filter(([id, v]) => id !== S.device.id && v.agents.length);
+  return others.length ? `<div style="font-size:11px;color:var(--muted)">also on ${others.map(([, v]) => `${esc(v.device)} (${v.agents.join(', ')})`).join('; ')}</div>` : '';
 }
 function cellClick(name, agent, st) {
   if (st === 'missing' || st === 'broken-link') return installSkill(name, agent);
@@ -298,7 +316,11 @@ async function openSkill(name) {
   $('#drawer').innerHTML = `
     <div class="actions" style="justify-content:space-between"><h3 style="margin:0">${esc(name)}</h3><button class="btn sm" onclick="closeDrawer()">✕</button></div>
     <p class="help">${esc(s?.description || '')}</p>
-    <div class="kv"><b>Path</b><code>${esc(s?.path || '')}</code><b>Files</b><span>${files.map(f => `<span class="chip">${esc(f.path)}</span>`).join('')}</span></div>
+    <div class="kv">
+      <b>Origin</b><span>${og(s?.origin)} <select style="width:auto;padding:2px 6px;font-size:12px" onchange="setOrigin('${esc(name)}',this.value)">${['personal', 'builtin', 'plugin'].map(o => `<option value="${o}" ${s?.origin === o ? 'selected' : ''}>${OG_LABEL[o]}</option>`).join('')}</select>${s?.originOverridden ? ' <small style="color:var(--muted)">set by you</small>' : ` <small style="color:var(--muted)">${esc(s?.originNote || 'auto-detected')}</small>`}</span>
+      <b>From</b><span>${s?.source ? `${esc(s.source.agent)} on <b>${esc(s.source.device)}</b>${s.source.bundle ? ` · ${esc(s.source.bundle)}` : ''}${s.adopted ? ` · adopted ${esc(s.adopted.slice(0, 10))}` : ''}<br><code>${esc(s.source.path)}</code>` : '<span style="color:var(--muted)">created in vault / adopted before provenance tracking</span>'}</span>
+      <b>Seen on</b><span>${Object.entries(s?.seen || {}).length ? Object.entries(s.seen).map(([id, v]) => `<div><b>${esc(v.device)}</b>${id === S.device.id ? ' (this device)' : ''}: ${v.agents.length ? v.agents.map(a => `<span class="chip">${esc(a)}</span>`).join('') : '<span style="color:var(--muted)">vault only</span>'} <small style="color:var(--muted)">${esc(v.at.slice(0, 10))}</small></div>`).join('') : '—'}</span>
+      <b>Path</b><code>${esc(s?.path || '')}</code><b>Files</b><span>${files.map(f => `<span class="chip">${esc(f.path)}</span>`).join('')}</span></div>
     <h3 style="margin-top:14px">Where it's installed</h3>
     ${fsAgents().map(a => { const st = s?.agents[a.id]?.status || 'missing'; return `<div style="display:flex;justify-content:space-between;padding:5px 0"><span>${esc(a.name)}</span><button class="st ${st}" onclick="cellClick('${esc(name)}','${a.id}','${st}');closeDrawer()">${STATUS_LABEL[st]}</button></div>`; }).join('')}
     <h3 style="margin-top:14px">SKILL.md</h3>
@@ -309,6 +331,7 @@ async function openSkill(name) {
     </div>`;
   $('#drawer').classList.add('open'); $('#backdrop').classList.add('open');
 }
+function setOrigin(name, origin) { act(() => api('POST', `/api/skills/${encodeURIComponent(name)}/origin`, { origin }), `Marked ${origin}`); }
 function saveSkill(name) { act(() => api('PUT', `/api/skills/${encodeURIComponent(name)}/file`, { path: 'SKILL.md', content: $('#skill-body').value }), 'Saved'); }
 function deleteSkill(name) { if (confirm(`Delete "${name}" from the vault? Linked agents will lose it; copies stay.`)) { closeDrawer(); act(() => api('DELETE', `/api/skills/${encodeURIComponent(name)}`), 'Deleted'); } }
 function closeDrawer() { $('#drawer').classList.remove('open'); $('#backdrop').classList.remove('open'); $('#drawer').style.width = ''; }
@@ -337,8 +360,8 @@ function conflicts() {
     <p class="help">${help}</p>
     <div class="card" style="padding:0"><table><thead><tr><th>A</th><th>B</th><th>Score</th><th></th></tr></thead><tbody>
     ${groups[k].map(p => `<tr>
-      <td>${where(p.a.key)} <b>${esc(shortName(p.a.key))}</b><div style="color:var(--muted);font-size:12px;max-width:36ch;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.a.description)}</div></td>
-      <td>${where(p.b.key)} <b>${esc(shortName(p.b.key))}</b><div style="color:var(--muted);font-size:12px;max-width:36ch;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.b.description)}</div></td>
+      <td>${where(p.a.key)} <b>${esc(shortName(p.a.key))}</b> ${og(p.a.origin)}<div style="color:var(--muted);font-size:12px;max-width:36ch;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.a.description)}</div></td>
+      <td>${where(p.b.key)} <b>${esc(shortName(p.b.key))}</b> ${og(p.b.origin)}<div style="color:var(--muted);font-size:12px;max-width:36ch;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.b.description)}</div></td>
       <td>${Math.round(p.score * 100)}%</td>
       <td style="white-space:nowrap"><button class="btn sm" onclick="openCompare('${esc(p.a.key)}','${esc(p.b.key)}')">Compare</button> ${quickActions(p)} <button class="btn sm" onclick="markDistinct('${esc(p.a.key)}','${esc(p.b.key)}')">Distinct</button></td>
     </tr>`).join('')}
@@ -400,7 +423,7 @@ function memory() {
     <select onchange="ui.memTag=this.value;render()" style="max-width:160px"><option value="">All tags</option>${tags.map(t => `<option ${t === ui.memTag ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>
   </div>
   <div class="two">
-    <div class="list">${items.length ? items.map(m => `<div class="item ${m.id === ui.memId ? 'active' : ''}" onclick="ui.memId='${esc(m.id)}';render()"><div class="t">${esc(m.title)}</div><div class="m">${esc(m.scope)} · ${m.tags.map(t => `<span class="chip">${esc(t)}</span>`).join('') || '<span style="opacity:.6">no tags</span>'}</div><div class="m">${esc(m.body)}</div></div>`).join('') : '<div class="empty">Nothing here yet.</div>'}</div>
+    <div class="list">${items.length ? items.map(m => `<div class="item ${m.id === ui.memId ? 'active' : ''}" onclick="ui.memId='${esc(m.id)}';render()"><div class="t">${esc(m.title)}</div><div class="m">${esc(m.scope)}${m.agent ? ` · ${esc(m.agent)} @ ${esc(m.device)}` : ''} · ${m.tags.map(t => `<span class="chip">${esc(t)}</span>`).join('') || '<span style="opacity:.6">no tags</span>'}</div><div class="m">${esc(m.body)}</div></div>`).join('') : '<div class="empty">Nothing here yet.</div>'}</div>
     <div class="card">${ui.memId ? memoryForm(ui.memId === '__new' ? null : cur) : '<div class="empty">Select a memory item, or create one.<br><br>Memory items are plain markdown files in <code>vault/memory/</code>. "Push" writes them into each agent\'s memory file (CLAUDE.md, AGENTS.md, GEMINI.md…) inside a marked block that Cortex owns, leaving your own content alone.</div>'}</div>
   </div>`;
 }
@@ -417,7 +440,7 @@ function memoryForm(m) {
     <label class="f">Share with</label>
     <div><label><input type="checkbox" id="m-all" ${agentsAll ? 'checked' : ''} onchange="document.querySelectorAll('.m-ag').forEach(c=>c.disabled=this.checked)" style="width:auto"> All agents</label>
     ${ag.map(a => `<label style="margin-left:12px"><input type="checkbox" class="m-ag" value="${a.id}" ${!agentsAll && m?.agents.includes(a.id) ? 'checked' : ''} ${agentsAll ? 'disabled' : ''} style="width:auto"> ${esc(a.name)}</label>`).join('')}</div>
-    ${m?.source ? `<p class="help" style="margin-top:10px">Source: <code>${esc(m.source)}</code></p>` : ''}
+    ${m?.agent || m?.source ? `<p class="help" style="margin-top:10px">From <b>${esc(m.agent || '?')}</b> on <b>${esc(m.device || '?')}</b>${m.source ? ` · <code>${esc(m.source)}</code>` : ''}</p>` : ''}
     <div class="actions" style="margin-top:14px;justify-content:space-between">
       <button class="btn primary" onclick="saveMemory(${m ? `'${esc(m.id)}'` : 'null'})">Save</button>
       ${m ? `<button class="btn danger" onclick="deleteMemory('${esc(m.id)}')">Delete</button>` : ''}
@@ -487,8 +510,8 @@ function removeAgent(i) { S.config.agents = collectAgents().filter((_, j) => j !
 // ---------- Devices ----------
 function devices() {
   return `<p class="help">Every device that opens this vault registers itself here (stored in <code>vault/devices.json</code>, so it travels with the vault). Sync the vault to see other devices.</p>
-  <div class="card" style="padding:0"><table><thead><tr><th>Device</th><th>Platform</th><th>Agents seen</th><th>Vault path</th><th>Last seen</th></tr></thead><tbody>
-  ${S.devices.map(d => `<tr><td><b>${esc(d.name)}</b>${d.id === S.device.id ? ' <span class="chip">this device</span>' : ''}<div style="color:var(--muted);font-size:11px">${esc(d.id)}</div></td><td>${esc(d.platform)}</td><td>${(d.agents || []).map(a => `<span class="chip">${esc(a)}</span>`).join('')}</td><td><code>${esc(d.vaultPath || '')}</code></td><td>${esc((d.lastSeen || '').replace('T', ' ').slice(0, 16))}</td></tr>`).join('')}
+  <div class="card" style="padding:0"><table><thead><tr><th>Device</th><th>Platform</th><th>Agents seen</th><th>Skills installed there</th><th>Vault path</th><th>Last seen</th></tr></thead><tbody>
+  ${S.devices.map(d => `<tr><td><b>${esc(d.name)}</b>${d.id === S.device.id ? ' <span class="chip">this device</span>' : ''}<div style="color:var(--muted);font-size:11px">${esc(d.id)}</div></td><td>${esc(d.platform)}</td><td>${(d.agents || []).map(a => `<span class="chip">${esc(a)}</span>`).join('')}</td><td>${S.skills.filter(s => s.seen?.[d.id]?.agents.length).length} / ${S.skills.length}</td><td><code>${esc(d.vaultPath || '')}</code></td><td>${esc((d.lastSeen || '').replace('T', ' ').slice(0, 16))}</td></tr>`).join('')}
   </tbody></table></div>
   <div class="actions" style="margin-top:12px"><button class="btn" onclick="renameDevice()">Rename this device</button></div>`;
 }

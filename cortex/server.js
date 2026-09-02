@@ -26,6 +26,7 @@ const routes = [
   ['GET', '/api/skills/:name', (p) => ops.skill(p.name)],
   ['PUT', '/api/skills/:name/file', (p, body) => ops.writeSkillFile({ name: p.name, ...body })],
   ['DELETE', '/api/skills/:name', (p) => ops.deleteSkill({ name: p.name })],
+  ['POST', '/api/skills/:name/origin', (p, body) => ops.setOrigin({ name: p.name, origin: body.origin })],
   ['POST', '/api/skills/adopt', (_, body) => ops.adopt(body)],
   ['POST', '/api/skills/install', (_, body) => ops.install(body)],
   ['POST', '/api/skills/uninstall', (_, body) => ops.uninstall(body)],
