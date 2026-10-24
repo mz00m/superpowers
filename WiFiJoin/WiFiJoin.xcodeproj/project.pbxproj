@@ -1,0 +1,323 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		D0D0D0D0D0D0D0D0D0D0D040 /* WiFiJoinApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0D0D0D0D0D0D0D0D0D0D030 /* WiFiJoinApp.swift */; };
+		D0D0D0D0D0D0D0D0D0D0D041 /* CaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0D0D0D0D0D0D0D0D0D0D031 /* CaptureView.swift */; };
+		D0D0D0D0D0D0D0D0D0D0D042 /* CameraPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0D0D0D0D0D0D0D0D0D0D032 /* CameraPicker.swift */; };
+		D0D0D0D0D0D0D0D0D0D0D043 /* ScanViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0D0D0D0D0D0D0D0D0D0D033 /* ScanViewModel.swift */; };
+		D0D0D0D0D0D0D0D0D0D0D044 /* WiFiCredentials.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0D0D0D0D0D0D0D0D0D0D034 /* WiFiCredentials.swift */; };
+		D0D0D0D0D0D0D0D0D0D0D045 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D0D0D0D0D0D0D0D0D0D0D035 /* Assets.xcassets */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		D0D0D0D0D0D0D0D0D0D0D011 /* WiFiJoin.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WiFiJoin.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D0D0D0D0D0D0D0D0D0D0D030 /* WiFiJoinApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WiFiJoinApp.swift; sourceTree = "<group>"; };
+		D0D0D0D0D0D0D0D0D0D0D031 /* CaptureView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureView.swift; sourceTree = "<group>"; };
+		D0D0D0D0D0D0D0D0D0D0D032 /* CameraPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPicker.swift; sourceTree = "<group>"; };
+		D0D0D0D0D0D0D0D0D0D0D033 /* ScanViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanViewModel.swift; sourceTree = "<group>"; };
+		D0D0D0D0D0D0D0D0D0D0D034 /* WiFiCredentials.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WiFiCredentials.swift; sourceTree = "<group>"; };
+		D0D0D0D0D0D0D0D0D0D0D035 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		D0D0D0D0D0D0D0D0D0D0D036 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		D0D0D0D0D0D0D0D0D0D0D037 /* WiFiJoin.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = WiFiJoin.entitlements; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D0D0D0D0D0D0D0D0D0D0D013 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		D0D0D0D0D0D0D0D0D0D0D002 = {
+			isa = PBXGroup;
+			children = (
+				D0D0D0D0D0D0D0D0D0D0D004 /* WiFiJoin */,
+				D0D0D0D0D0D0D0D0D0D0D003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		D0D0D0D0D0D0D0D0D0D0D003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D0D0D0D0D0D0D0D0D0D0D011 /* WiFiJoin.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		D0D0D0D0D0D0D0D0D0D0D004 /* WiFiJoin */ = {
+			isa = PBXGroup;
+			children = (
+				D0D0D0D0D0D0D0D0D0D0D030 /* WiFiJoinApp.swift */,
+				D0D0D0D0D0D0D0D0D0D0D005 /* Models */,
+				D0D0D0D0D0D0D0D0D0D0D006 /* ViewModels */,
+				D0D0D0D0D0D0D0D0D0D0D007 /* Views */,
+				D0D0D0D0D0D0D0D0D0D0D035 /* Assets.xcassets */,
+				D0D0D0D0D0D0D0D0D0D0D036 /* Info.plist */,
+				D0D0D0D0D0D0D0D0D0D0D037 /* WiFiJoin.entitlements */,
+			);
+			path = WiFiJoin;
+			sourceTree = "<group>";
+		};
+		D0D0D0D0D0D0D0D0D0D0D005 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				D0D0D0D0D0D0D0D0D0D0D034 /* WiFiCredentials.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		D0D0D0D0D0D0D0D0D0D0D006 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				D0D0D0D0D0D0D0D0D0D0D033 /* ScanViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		D0D0D0D0D0D0D0D0D0D0D007 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				D0D0D0D0D0D0D0D0D0D0D031 /* CaptureView.swift */,
+				D0D0D0D0D0D0D0D0D0D0D032 /* CameraPicker.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		D0D0D0D0D0D0D0D0D0D0D010 /* WiFiJoin */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D0D0D0D0D0D0D0D0D0D0D023 /* Build configuration list for PBXNativeTarget "WiFiJoin" */;
+			buildPhases = (
+				D0D0D0D0D0D0D0D0D0D0D012 /* Sources */,
+				D0D0D0D0D0D0D0D0D0D0D013 /* Frameworks */,
+				D0D0D0D0D0D0D0D0D0D0D014 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = WiFiJoin;
+			productName = WiFiJoin;
+			productReference = D0D0D0D0D0D0D0D0D0D0D011 /* WiFiJoin.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		D0D0D0D0D0D0D0D0D0D0D001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					D0D0D0D0D0D0D0D0D0D0D010 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = D0D0D0D0D0D0D0D0D0D0D020 /* Build configuration list for PBXProject "WiFiJoin" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = D0D0D0D0D0D0D0D0D0D0D002;
+			productRefGroup = D0D0D0D0D0D0D0D0D0D0D003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D0D0D0D0D0D0D0D0D0D0D010 /* WiFiJoin */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		D0D0D0D0D0D0D0D0D0D0D014 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D0D0D0D0D0D0D0D0D0D0D045 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D0D0D0D0D0D0D0D0D0D0D012 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D0D0D0D0D0D0D0D0D0D0D040 /* WiFiJoinApp.swift in Sources */,
+				D0D0D0D0D0D0D0D0D0D0D041 /* CaptureView.swift in Sources */,
+				D0D0D0D0D0D0D0D0D0D0D042 /* CameraPicker.swift in Sources */,
+				D0D0D0D0D0D0D0D0D0D0D043 /* ScanViewModel.swift in Sources */,
+				D0D0D0D0D0D0D0D0D0D0D044 /* WiFiCredentials.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		D0D0D0D0D0D0D0D0D0D0D021 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		D0D0D0D0D0D0D0D0D0D0D022 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		D0D0D0D0D0D0D0D0D0D0D024 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = WiFiJoin/WiFiJoin.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = WiFiJoin/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = WiFiJoin;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.WiFiJoin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		D0D0D0D0D0D0D0D0D0D0D025 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = WiFiJoin/WiFiJoin.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = WiFiJoin/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = WiFiJoin;
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.WiFiJoin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		D0D0D0D0D0D0D0D0D0D0D020 /* Build configuration list for PBXProject "WiFiJoin" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D0D0D0D0D0D0D0D0D0D0D021 /* Debug */,
+				D0D0D0D0D0D0D0D0D0D0D022 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D0D0D0D0D0D0D0D0D0D0D023 /* Build configuration list for PBXNativeTarget "WiFiJoin" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D0D0D0D0D0D0D0D0D0D0D024 /* Debug */,
+				D0D0D0D0D0D0D0D0D0D0D025 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = D0D0D0D0D0D0D0D0D0D0D001 /* Project object */;
+}
